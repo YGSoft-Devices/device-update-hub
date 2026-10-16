@@ -1,0 +1,8 @@
+<!-- File: /web/public/icon.svg | Version: 0.1.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#145943"/>
+  <g fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M7 11 16 6 25 11 16 16Z"/>
+    <path d="m7 16 9 5 9-5M7 21l9 5 9-5"/>
+  </g>
+</svg>

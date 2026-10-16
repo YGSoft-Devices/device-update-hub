@@ -1,0 +1,35 @@
+# File: /compose.yaml | Version: 0.1.0
+services:
+  hub:
+    build: .
+    ports:
+      - "127.0.0.1:${DUH_PORT:-3210}:3210"
+    environment:
+      DUH_HOST: 0.0.0.0
+      DUH_PORT: "3210"
+      DUH_CONTAINER: "1"
+      DUH_DATA_DIR: /var/lib/duh
+      DUH_CREDENTIALS_FILE: /run/secrets/duh_credentials
+    volumes:
+      - hub-data:/var/lib/duh
+    secrets:
+      - duh_credentials
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3210/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+volumes:
+  hub-data:
+secrets:
+  duh_credentials:
+    file: ./.local/credentials.json

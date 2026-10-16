@@ -1,9 +1,9 @@
-<!-- File: /AGENTS.md | Document version: 0.1.0 | Status: DRAFT | Updated: 2026-10-16 -->
+<!-- File: /AGENTS.md | Document version: 0.2.0 | Status: MVP AUTHORIZED | Updated: 2026-10-16 -->
 # AGENTS.md — Device Update Hub
 
 > **Location:** `/AGENTS.md` (repository root)  
-> **Document version:** `0.1.0`  
-> **Status:** Planning / documentation-only  
+> **Document version:** `0.2.0`  
+> **Status:** Local MVP implementation authorized  
 > **Last updated:** 2026-10-16
 
 ## 1. Agent role and authority
@@ -12,7 +12,7 @@ This document guides Codex and any other AI coding agent working on **Device Upd
 
 The project is a standalone, Docker-deployed web administration platform and API for distributing updates to heterogeneous devices. It may integrate with Meeting in the future, but it must remain independently deployable until an explicit integration plan is accepted.
 
-**Current authorization boundary: DO NOT IMPLEMENT CODE YET.** The user has requested project definition and documentation only. Do not generate an implementation, modify an existing application, introduce dependencies, initialize a database, change Docker files or contact production services unless the user explicitly authorizes the relevant work.
+**Current authorization boundary: LOCAL MVP IMPLEMENTATION APPROVED on 2026-10-16.** The user explicitly approved TypeScript/Fastify, React/Vite, SQLite, local persistent artifacts, Docker Compose, private scoped bearer access, exact compatibility and the SemVer multi-artifact contract in `/docs/DECISIONS.md`. Implement and test this scope autonomously. No production deployment, live-device operation, installer or Meeting integration is authorized. Production signing and identity hardening remain open gates.
 
 Before any later implementation task, read `/README.md` and this entire file. Distinguish approved requirements from illustrative API examples and unresolved design decisions.
 
@@ -153,8 +153,8 @@ Those are **potential mapping points, not a signed integration contract**. Befor
 
 ## 12. Immediate next step
 
-Stay in **specification mode**. Prepare to discuss product scope, device types, trust model, deployment topology, API manifest schema, update installers and how Meeting should connect later. Do not select a technical stack or start implementation just because it appears convenient.
+Develop the approved local MVP in `/docs/DECISIONS.md`. Runtime contracts live in `/src/contract.ts`; keep tests beside the existing suites under `/tests`. Run `npm test`, `npm run build`, and browser workflow tests before declaring the local MVP functional. Keep secrets and persistent data out of version control and the image. Update document/file versions on every revision; comment-free files are tracked in `/versions.json`. Complete file contents are available in the workspace; do not paste large files into chat unless requested.
 
 ---
 
-*Initial agent instructions: 0.1.0 — 2026-10-16.*
+*Agent instructions: 0.2.0 — 2026-10-16. Initial specification retained as historical context.*

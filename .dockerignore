@@ -1,0 +1,13 @@
+# File: /.dockerignore | Version: 0.1.0
+**
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.server.json
+!vite.config.ts
+!src/
+!src/**
+!scripts/
+!scripts/**
+!web/
+!web/**

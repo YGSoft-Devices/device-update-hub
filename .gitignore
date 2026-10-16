@@ -1,0 +1,12 @@
+# File: /.gitignore | Version: 0.1.1
+node_modules/
+dist/
+build/
+.local/
+data/
+.env
+*.db
+*.db-shm
+*.db-wal
+test-results/
+playwright-report/

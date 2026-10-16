@@ -1,12 +1,51 @@
-<!-- File: /README.md | Document version: 0.1.0 | Status: DRAFT | Updated: 2026-10-16 -->
+<!-- File: /README.md | Document version: 0.2.0 | Status: LOCAL MVP | Updated: 2026-10-16 -->
 # Device Update Hub
 
 > **Working name:** Device Update Hub (DUH)  
-> **Status:** Functional and architectural specification — **no implementation yet**  
+> **Status:** Local MVP implemented and tested; production not authorized  
+> **Document version:** `0.2.0`  
 > **Specification version:** `0.1.0`  
 > **Repository location:** `/README.md`  
 > **Last updated:** 2026-10-16  
 > **Potential future relationship:** Meeting integration, not yet designed or committed
+
+## Local MVP / MVP local
+
+**FR** — Le serveur, l'administration web et l'outil de publication sont implémentés. Les vérifications locales couvrent 11 tests unitaires/intégration, deux parcours navigateur desktop/mobile, la compilation TypeScript et l'audit des dépendances. Aucun appareil ni service de production n'est contacté. Docker Compose est configuré mais son exécution reste à vérifier : le moteur Docker local était arrêté.
+
+**EN** — The approved [MVP contract](docs/DECISIONS.md) supersedes the original design proposals below. Runtime schemas are in [src/contract.ts](src/contract.ts). Implemented: private product-scoped bearer access, products, editable drafts, multiple ordered artifacts, SHA-256 integrity, atomic publishing, withdrawal, audit history, exact compatible SemVer discovery, immutable manifests, resumable downloads, SQLite persistence, a responsive React administration UI and a retry-safe script publisher. No check automatically downloads or installs anything.
+
+### Run locally
+
+Use Node.js 24 LTS or newer (tested here on Node 26.9.0) and npm:
+
+```sh
+npm ci
+npm run init
+npm run build
+npm start
+```
+
+Open **http://127.0.0.1:3210**. The init command creates random credentials in `.local/credentials.json` without displaying them or overwriting existing credentials. Sign in with the `local-admin` token from that file, then create the `meeting-agent` product in Products. The generated publisher and reader credentials are scoped to that product. Never share the file or paste credentials into chat. Sessions remain in memory, not browser storage; reloading requires signing in again. English UI strings are centralized in `web/copy.ts`; French localization is not yet provided.
+
+`npm run dev` starts from TypeScript source, but serves the last built UI. After frontend edits run `npm run build` again. The default catalog and artifact directory is `.local/data`. Override it with `DUH_DATA_DIR`; configure `DUH_PORT` and `DUH_CREDENTIALS_FILE` as needed. Keep native binding on loopback.
+
+### Verify
+
+```sh
+npm test
+npm run build
+npm run test:e2e
+npm audit
+```
+
+On Windows browser tests use installed Microsoft Edge, avoiding a browser download; override with `PLAYWRIGHT_CHANNEL=chrome` if needed. On Linux run `npx playwright install --with-deps chromium` first. Tests use generated credentials and isolated temporary data, not the running local catalog. Browser traces are disabled to avoid recording bearer headers. Screenshots are under `test-results` and are ignored by Git.
+
+### Docker and scripts
+
+After initializing credentials, `docker compose up --build -d` builds the application and mounts a durable named data volume. The published port is loopback-only. `docker compose down` retains the data; **do not use `down -v` unless intentional data loss is acceptable**. Native and Docker deployments use separate catalogs by default; do not run both on the same port or writable directory.
+
+For scripted publication, see [docs/OPERATIONS.md](docs/OPERATIONS.md). File versions and exact validation limits are recorded in [docs/DELIVERY.md](docs/DELIVERY.md). Production signing, TLS, identity management, installers and Meeting integration are not implemented or approved. Treat this as a local development MVP, not a production update authority.
 
 ## 1. Overview / Présentation
 
@@ -113,9 +152,9 @@ Published release files and version identity are **immutable**. To correct a pub
 
 A local script or CI job can authenticate with a scoped publisher credential, initialize a draft release, upload one or more artifacts, submit its manifest, validate the draft and explicitly publish it. The process must be non-interactive, report failures with nonzero exit status and support idempotent retries. A minimal CLI may wrap these endpoints later; it is **not** a prerequisite for the API.
 
-## 5. Proposed API contract (design only)
+## 5. API v1 (local MVP)
 
-Base path: `/api/v1`. Names below are **proposals**, not existing endpoints.
+Base path: `/api/v1`. The [approved contract](docs/DECISIONS.md) and strict runtime schemas govern the implemented endpoints below. A bearer credential is mandatory. Optional device event reporting and larger resource-management APIs remain deferred.
 
 ### 5.1 Device API
 
@@ -124,22 +163,21 @@ Base path: `/api/v1`. Names below are **proposals**, not existing endpoints.
 | `POST` | `/api/v1/updates/check` | Find the newest eligible release for a device/product/version/channel. |
 | `GET` | `/api/v1/releases/{release_id}/manifest` | Retrieve the immutable manifest for an authorized release. |
 | `GET` | `/api/v1/artifacts/{artifact_id}/download` | Download an authorized artifact, ideally with resumable HTTP ranges. |
-| `POST` | `/api/v1/devices/{device_id}/update-events` | Optional status reporting, when identity and permission are configured. |
 
-Illustrative check request (not a finalized schema):
+Check request (all target fields are required and matched exactly):
 
 ```json
 {
   "product": "meeting-agent",
-  "device_type": "rpi-camera",
   "current_version": "1.4.2",
   "channel": "stable",
-  "platform": {
+  "target": {
+    "device_type": "rpi-camera",
     "os": "linux",
     "architecture": "arm64",
-    "hardware_revision": "rev-b"
-  },
-  "updater_protocol": "1"
+    "hardware_revision": "rev-b",
+    "updater_protocol": 1
+  }
 }
 ```
 
@@ -149,13 +187,12 @@ Illustrative positive response:
 {
   "update_available": true,
   "release": {
-    "id": "rel_01EXAMPLE",
+    "id": "65c68117-3141-4664-a761-12eea190cf22",
     "product": "meeting-agent",
     "version": "1.5.0",
     "channel": "stable",
-    "mandatory": false,
     "release_notes": "Stability improvements",
-    "manifest_url": "/api/v1/releases/rel_01EXAMPLE/manifest"
+    "manifest_url": "/api/v1/releases/65c68117-3141-4664-a761-12eea190cf22/manifest"
   }
 }
 ```
@@ -165,35 +202,35 @@ Illustrative no-update response:
 ```json
 {
   "update_available": false,
-  "reason": "up_to_date"
+  "reason": "no_eligible_update"
 }
 ```
 
-A manifest should describe at least: schema version, release identity, compatible targets, version, artifacts (stable IDs, sizes, SHA-256 and download references), installation ordering/hints, and optional signatures. All URLs must be server-issued and authorization-aware.
+A v1 manifest describes schema version, immutable release identity, exact targets, version and ordered required artifacts with stable IDs, sizes, SHA-256 hashes and protected relative download URLs. No signatures or arbitrary installation commands are included. Checks, manifest retrieval and downloads are separate operations.
 
-**The exact JSON schema, pagination, error envelope, authentication flow and event model remain design decisions requiring an explicit contract review before coding.**
+Unknown input fields are rejected. Errors use `{ "error": { "code": "...", "message": "..." } }`. Missing credentials return 401; denied product/role access returns 403. Lifecycle conflicts return 409; invalid or corrupted publishable content returns 422. Protocol v1 accepts canonical SemVer without build metadata. Pagination and telemetry are deferred; do not use this MVP for an unbounded production catalog.
 
 ### 5.2 Administration API
 
-Proposed authenticated resource groups:
+Implemented authenticated resource groups:
 
-- `/api/v1/admin/products` — product CRUD and ownership.
-- `/api/v1/admin/device-types` — device type and compatibility management.
-- `/api/v1/admin/channels` — channel policy.
-- `/api/v1/admin/releases` — create drafts, edit draft metadata, publish, withdraw, archive, inspect.
-- `/api/v1/admin/audit-events` — audit of administration operations.
+- `GET/POST /api/v1/admin/products` — list permitted products; admins create them.
+- `POST /api/v1/admin/releases/{id}/withdraw` — admins withdraw published releases.
+- `GET /api/v1/admin/audit-events` — admins inspect the latest 100 mutations.
+- `GET /api/v1/session` — inspect the authenticated role and product grants.
+- Device types, channels and exact compatibility targets are explicit draft fields, not separate CRUD resources. Archival, product deletion and user/token administration UI are deferred.
 
 ### 5.3 Publisher API
 
-Proposed authenticated flow:
+Implemented authenticated flow (admin or product-scoped publisher):
 
 1. `POST /api/v1/publishing/releases` — create or reuse a draft by idempotency key.
-2. `POST /api/v1/publishing/releases/{id}/artifacts` — upload or initiate a resumable upload.
+2. `POST /api/v1/publishing/releases/{id}/artifacts` — upload one multipart file, at most 64 MiB. Retry an identical filename/hash safely; partial uploads must restart. Resumable transfers apply to downloads, not uploads.
 3. `PUT /api/v1/publishing/releases/{id}/manifest` — submit/update draft manifest.
 4. `POST /api/v1/publishing/releases/{id}/validate` — receive errors and warnings.
 5. `POST /api/v1/publishing/releases/{id}/publish` — atomically publish after validation.
 
-Authentication scopes should distinguish **read/check**, **publish**, and **administration**. Publisher credentials must not grant fleet administration by default.
+`GET /api/v1/publishing/releases` lists permitted releases; `GET/PATCH .../{id}` inspects or edits a draft; `DELETE .../{id}/artifacts/{artifact_id}` removes a draft attachment. PATCH replaces all draft fields and invalidates the manifest. Create requires a principal-scoped `Idempotency-Key`. The script publisher handles these steps and retries. Reader credentials cannot mutate releases; publisher credentials cannot create products or withdraw releases.
 
 ## 6. Release and versioning rules
 
@@ -225,7 +262,7 @@ Authentication scopes should distinguish **read/check**, **publish**, and **admi
 
 **MVP target:** a standalone Docker Compose deployment exposing the web UI and REST API, with durable catalog data and artifact storage outside ephemeral container layers.
 
-Suggested logical components (implementation choices open):
+Logical components (the approved local implementation is intentionally single-instance):
 
 - **Application service:** API, admin UI, authentication and release selection.
 - **Catalog persistence:** relational database or an explicitly justified embedded database for an initial single-instance deployment.
@@ -233,7 +270,7 @@ Suggested logical components (implementation choices open):
 - **Optional worker:** asynchronous packaging, integrity verification, housekeeping, notifications and large uploads, if required by actual needs.
 - **Reverse proxy/TLS termination:** existing HTTPS infrastructure or a dedicated proxy; do not expose unsecured admin APIs publicly.
 
-Back up **both** catalog data and artifacts consistently. Document recovery, storage permissions, health checks, configuration, migration and retention before production use. The exact programming language, database, frameworks and proxy are deliberately undecided.
+Back up **both** catalog data and artifacts consistently. The MVP uses TypeScript/Fastify, React/Vite, SQLite and local content-addressed artifacts. Production proxy/TLS and deployment topology remain open. See [docs/OPERATIONS.md](docs/OPERATIONS.md) for backup and recovery requirements.
 
 ## 9. Web administration UI
 
@@ -294,25 +331,22 @@ The first working release should prove the following end-to-end behaviors:
 
 ## 13. Open decisions / Décisions à prendre
 
-These choices are **not approved** by this document:
+The approved local choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md). Remaining decisions beyond that MVP:
 
-1. Final product name, repository name and ownership.
-2. Backend and frontend technologies; database (embedded vs server) and artifact storage architecture.
-3. Whether device checks are authenticated by default or publicly accessible for selected products.
-4. Whether publisher API uses API keys, OAuth/OIDC, or another identity mechanism.
-5. Exact manifest schema, artifact ordering and device installer capability negotiation.
-6. Scope of first supported clients: Linux/Raspberry Pi, Windows, ESP32/embedded, etc.
-7. How hardware compatibility, dependencies and custom version formats are represented.
-8. Rollback support, forced/security updates and staged rollouts.
-9. Release signing/key management responsibilities and trust anchors on devices.
-10. Deployment topology, TLS termination and domain naming.
-11. Whether Meeting Distrib Builder remains an independent upstream producer or is replaced/bridged later.
-12. Whether to record device update history and how long to retain identifying telemetry.
+1. Final product branding and ownership.
+2. Production identities, SSO, credential expiry/revocation and multi-user administration.
+3. Artifact and manifest signing, trust anchors and key rotation.
+4. Trusted platform-specific installers and recovery strategies; no device family is installation-certified by this server.
+5. Legacy version formats, updater dependencies, rollback and staged rollouts.
+6. Production topology, TLS, domain names and multi-instance storage.
+7. Meeting integration, independently reviewed before implementation.
+8. Opt-in device telemetry and retention, if needed.
+9. Disk quotas, automated garbage collection, pagination, migrations and tested disaster recovery at production scale.
 
 ## 14. Document governance
 
-- This document is a **proposal**, not a claim that endpoints or features are already implemented.
-- Work remains **documentation-only** until implementation is explicitly authorized.
+- The local MVP summary and approved contract describe implemented behavior; the broader product vision remains a roadmap, not a production-readiness claim.
+- Local implementation was explicitly authorized on 2026-10-16. Production, live devices, installers and Meeting integration remain outside that authorization.
 - Keep the canonical checkout paths `/README.md` and `/AGENTS.md` for GitHub/Codex compatibility.
 - Each document carries its **own version** in the header. Increment the version whenever that document changes.
 - For deliverables outside a repository, use a versioned bundle folder, e.g. `device-update-hub/v0.1.0/README.md`, retaining the canonical filename.
