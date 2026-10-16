@@ -1,0 +1,323 @@
+<!-- File: /README.md | Document version: 0.1.0 | Status: DRAFT | Updated: 2026-10-16 -->
+# Device Update Hub
+
+> **Working name:** Device Update Hub (DUH)  
+> **Status:** Functional and architectural specification — **no implementation yet**  
+> **Specification version:** `0.1.0`  
+> **Repository location:** `/README.md`  
+> **Last updated:** 2026-10-16  
+> **Potential future relationship:** Meeting integration, not yet designed or committed
+
+## 1. Overview / Présentation
+
+**EN** — Device Update Hub is a self-hosted, containerized platform that centralizes the publication, discovery, distribution, and lifecycle management of software and firmware updates for heterogeneous devices. A single HTTP API serves devices, an administration web UI serves maintainers, and an authenticated publication API serves local development scripts and CI pipelines. Devices keep control of whether and when to install an available update. The platform can later become a Meeting extension without depending on Meeting for its first deployment.
+
+**FR** — Device Update Hub est une plateforme auto-hébergée, conteneurisée, qui centralise la publication, la découverte, la distribution et la gestion des mises à jour logicielles et firmware pour des appareils hétérogènes. Une API HTTP unique dessert les devices, une interface web permet l'administration et une API sécurisée permet la publication depuis des scripts locaux ou la CI. **Vérifier une mise à jour ne signifie jamais l'installer.** Une intégration future à Meeting est envisagée, sans créer de dépendance dès le départ.
+
+### Goals / Objectifs
+
+- One update service for multiple device families and software products.
+- One consistent client-facing update discovery contract, independent of operating system.
+- Release management through a web interface: create, edit permitted metadata, publish, withdraw, archive, and inspect releases and their files.
+- Scriptable publishing from a development machine or CI/CD.
+- Delivery of one or several files that belong to the same release.
+- Clear compatibility and version selection rules; no accidental cross-device updates.
+- Traceable release and update activity with secure defaults.
+- Standalone Docker deployment now; optional Meeting integration later.
+
+### Non-goals for the first version
+
+- No universal flashing or installation engine that can safely execute on every device.
+- No automatic installation solely because a device performed a check.
+- No reliance on Meeting's reverse tunnels, its database, or its authentication at launch.
+- No forced fleet-wide remote execution or automatic configuration changes.
+- No incremental/delta update engine, peer-to-peer distribution, or complex orchestration in the initial MVP.
+
+## 2. Core principle / Principe
+
+```text
+Local developer / CI                 Administrator
+       |                                  |
+       | Authenticated publish API        | Web UI
+       v                                  v
++---------------------------------------------------------+
+|                 Device Update Hub                       |
+|   REST API + Admin UI + Release Catalog + File Storage  |
++---------------------------------------------------------+
+          ^                            |
+          | Check current version      | Eligible release +
+          | and device capabilities    | manifest / artifacts
+          |                            v
+     +----------+               +-------------+
+     |  Device  | --download--> | Artifact API|
+     +----------+               +-------------+
+          |
+          +-- Verify content, obtain user approval, install locally
+              using that device's own updater/installer
+```
+
+**Important distinction:** the server selects and distributes a *compatible release*; the device-specific updater validates and applies it. The server does not assume that replacing a Linux package, flashing ESP firmware, and updating a Windows application are the same operation.
+
+## 3. Concepts and data model
+
+| Concept | Definition |
+|---|---|
+| **Product** | Independently versioned software/firmware component, e.g. `meeting-agent` or a device firmware. |
+| **Device type** | Logical hardware/model family, e.g. `rpi-camera`, `esp32-cam`, `windows-client`. |
+| **Variant / constraints** | Hardware revision, OS, CPU architecture, bootloader or updater compatibility limits. |
+| **Channel** | Named distribution track such as `stable`, `beta`, or `dev`. |
+| **Release** | Versioned, immutable published snapshot of a product, channel and compatibility rules. |
+| **Artifact** | Binary, archive, configuration bundle, package, or other downloadable file within a release. |
+| **Manifest** | Machine-readable description of the release, required files, hashes, sizes, compatibility and install hints. |
+| **Device identity** | Optional registered identifier for per-device policy and auditing; **not** by itself an authentication credential. |
+| **Publisher** | Authorized human, script, or CI job permitted to create and publish releases. |
+| **Installation report** | Optional client event indicating download, verification, success or failure; not proof of success unless the device reports it. |
+
+A release can contain multiple artifacts and can target one or several compatible device types. The compatibility rules are part of the release, not merely implied by its filename.
+
+## 4. Expected user journeys / Parcours
+
+### 4.1 Device: Check for update
+
+1. A user chooses **Check for updates** on their device/application.
+2. The device contacts the Update Hub over HTTPS and submits its product, device type, installed version, selected channel, and relevant platform/hardware capabilities; optionally a registered device identity.
+3. The server authenticates the request according to the configured client-access policy, checks release status, compatibility, deployment policy and version ordering.
+4. The server responds with either **no eligible update** or the **newest eligible release**, including version and metadata required to retrieve its manifest.
+5. The device shows the result to the user. No download or installation occurs without the applicable client policy and user action.
+
+An update must never be proposed merely because it has the highest version number. Compatibility, channel, release visibility, allowed device scope, and updater capabilities take precedence.
+
+### 4.2 Device: Download and install
+
+1. After the user chooses **Update**, the device retrieves the manifest and required artifacts.
+2. The device validates the HTTPS connection, artifact sizes and SHA-256 hashes; it also validates cryptographic signatures where the applicable platform security policy requires them.
+3. The device stages files without corrupting the currently running installation.
+4. The **device-specific updater** applies files in the declared order or by its own trusted installation plan.
+5. It verifies the new version / health as far as the platform permits and optionally reports the outcome.
+6. On failure, it preserves diagnostics and uses the platform-specific recovery or rollback mechanism if supported.
+
+**The hub only distributes trusted declarative metadata and files.** It must not turn server-provided manifest fields into unrestricted shell commands on devices.
+
+### 4.3 Administrator: Manage a release
+
+1. Create or choose a product, device type/compatibility profile, and channel.
+2. Create a **draft** release with a version and release notes.
+3. Upload, remove, or replace files **while the release remains a draft**.
+4. Review file sizes, checksums, compatibility, required artifacts and manifest validity.
+5. Publish the release explicitly.
+6. Review release history and optionally withdraw or archive an obsolete release.
+
+Published release files and version identity are **immutable**. To correct a published binary, publish a new version; to make a harmful release unavailable, withdraw it. Editable metadata after publication is limited to non-executable presentation fields with an audit trail. A delete action must not silently break downloads already in progress; destructive cleanup is a separate controlled operation.
+
+### 4.4 Developer: Publish from a script
+
+A local script or CI job can authenticate with a scoped publisher credential, initialize a draft release, upload one or more artifacts, submit its manifest, validate the draft and explicitly publish it. The process must be non-interactive, report failures with nonzero exit status and support idempotent retries. A minimal CLI may wrap these endpoints later; it is **not** a prerequisite for the API.
+
+## 5. Proposed API contract (design only)
+
+Base path: `/api/v1`. Names below are **proposals**, not existing endpoints.
+
+### 5.1 Device API
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/v1/updates/check` | Find the newest eligible release for a device/product/version/channel. |
+| `GET` | `/api/v1/releases/{release_id}/manifest` | Retrieve the immutable manifest for an authorized release. |
+| `GET` | `/api/v1/artifacts/{artifact_id}/download` | Download an authorized artifact, ideally with resumable HTTP ranges. |
+| `POST` | `/api/v1/devices/{device_id}/update-events` | Optional status reporting, when identity and permission are configured. |
+
+Illustrative check request (not a finalized schema):
+
+```json
+{
+  "product": "meeting-agent",
+  "device_type": "rpi-camera",
+  "current_version": "1.4.2",
+  "channel": "stable",
+  "platform": {
+    "os": "linux",
+    "architecture": "arm64",
+    "hardware_revision": "rev-b"
+  },
+  "updater_protocol": "1"
+}
+```
+
+Illustrative positive response:
+
+```json
+{
+  "update_available": true,
+  "release": {
+    "id": "rel_01EXAMPLE",
+    "product": "meeting-agent",
+    "version": "1.5.0",
+    "channel": "stable",
+    "mandatory": false,
+    "release_notes": "Stability improvements",
+    "manifest_url": "/api/v1/releases/rel_01EXAMPLE/manifest"
+  }
+}
+```
+
+Illustrative no-update response:
+
+```json
+{
+  "update_available": false,
+  "reason": "up_to_date"
+}
+```
+
+A manifest should describe at least: schema version, release identity, compatible targets, version, artifacts (stable IDs, sizes, SHA-256 and download references), installation ordering/hints, and optional signatures. All URLs must be server-issued and authorization-aware.
+
+**The exact JSON schema, pagination, error envelope, authentication flow and event model remain design decisions requiring an explicit contract review before coding.**
+
+### 5.2 Administration API
+
+Proposed authenticated resource groups:
+
+- `/api/v1/admin/products` — product CRUD and ownership.
+- `/api/v1/admin/device-types` — device type and compatibility management.
+- `/api/v1/admin/channels` — channel policy.
+- `/api/v1/admin/releases` — create drafts, edit draft metadata, publish, withdraw, archive, inspect.
+- `/api/v1/admin/audit-events` — audit of administration operations.
+
+### 5.3 Publisher API
+
+Proposed authenticated flow:
+
+1. `POST /api/v1/publishing/releases` — create or reuse a draft by idempotency key.
+2. `POST /api/v1/publishing/releases/{id}/artifacts` — upload or initiate a resumable upload.
+3. `PUT /api/v1/publishing/releases/{id}/manifest` — submit/update draft manifest.
+4. `POST /api/v1/publishing/releases/{id}/validate` — receive errors and warnings.
+5. `POST /api/v1/publishing/releases/{id}/publish` — atomically publish after validation.
+
+Authentication scopes should distinguish **read/check**, **publish**, and **administration**. Publisher credentials must not grant fleet administration by default.
+
+## 6. Release and versioning rules
+
+- Use Semantic Versioning (`MAJOR.MINOR.PATCH`, optionally prerelease) for products that support it.
+- For firmware or legacy products with custom version strings, provide an explicit ordering/compatibility adapter; never compare version strings lexicographically.
+- A product/channel/target selection must not contain ambiguous competing releases. Define priority and tie behavior before implementing.
+- Candidate selection filters withdrawn, unpublished, incompatible, unauthorized or otherwise ineligible releases **before** ordering versions.
+- `stable`, `beta`, and `dev` are separate tracks; a device does not silently switch tracks.
+- A published release points to immutable, content-verified artifacts; publishing the same version with different bytes is prohibited.
+- Drafts may be freely edited; published releases may be withdrawn, superseded or archived, but never silently rewritten.
+- Downgrade and rollback availability require explicit policy and platform support; older versions are not implicitly offered as upgrades.
+- Release identifiers are stable independently of human-facing versions.
+
+## 7. Security baseline
+
+- HTTPS is required for production client, publisher and administrative traffic.
+- Authenticate administrators and publishers; use scoped, rotatable tokens for scripts and CI.
+- `device_id` and Meeting's `device_key` are **identifiers, not secrets**. Do not use them alone to authorize protected downloads or administration.
+- Define a deliberate policy for client read access (device credentials, signed short-lived download grants, or explicitly public artifacts) before deployment.
+- Validate upload type, size, paths and manifest schema; prevent path traversal, unsafe archive extraction and arbitrary server-side execution.
+- Use SHA-256 for transfer integrity. Design trusted artifact/manifest signing with key rotation for sensitive firmware and high-trust clients.
+- Protect against replay and unauthorized downgrade according to product risk.
+- Store secrets outside the image and repository; mount as environment secrets/configuration.
+- Log publication, withdrawal, authentication-relevant changes and privileged actions; never log secrets or full bearer tokens.
+- Apply sensible rate limits, upload quotas, download limits and storage retention policies.
+- Prefer atomic publish and fail-closed behavior: an incomplete release must never be announced as installable.
+
+## 8. Docker deployment model
+
+**MVP target:** a standalone Docker Compose deployment exposing the web UI and REST API, with durable catalog data and artifact storage outside ephemeral container layers.
+
+Suggested logical components (implementation choices open):
+
+- **Application service:** API, admin UI, authentication and release selection.
+- **Catalog persistence:** relational database or an explicitly justified embedded database for an initial single-instance deployment.
+- **Artifact storage:** persistent Docker volume or host-mounted directory; abstracted so object storage can be added later.
+- **Optional worker:** asynchronous packaging, integrity verification, housekeeping, notifications and large uploads, if required by actual needs.
+- **Reverse proxy/TLS termination:** existing HTTPS infrastructure or a dedicated proxy; do not expose unsecured admin APIs publicly.
+
+Back up **both** catalog data and artifacts consistently. Document recovery, storage permissions, health checks, configuration, migration and retention before production use. The exact programming language, database, frameworks and proxy are deliberately undecided.
+
+## 9. Web administration UI
+
+The UI should eventually provide:
+
+- Dashboard: releases, draft/published/withdrawn status, recent events and storage usage.
+- Products and device types: names, channels, supported platforms/hardware and compatibility rules.
+- Releases: create, edit drafts, upload files, validate, inspect manifest, publish, withdraw, archive.
+- Artifacts: sizes, checksum, filenames, upload status and safe download previews.
+- Activity/history: who published what and when; optional aggregate device check/update reports.
+- Access control: administrator accounts and scoped publisher credentials.
+- Internationalization: **English as the canonical UI language**, French localization supported from the start if feasible.
+
+A UI must not be the only way to operate the service: all key release-management functions need authenticated APIs for automation.
+
+## 10. Meeting interoperability (future, optional)
+
+Meeting already describes device identities (`device_key`), `device_type`, distributions, heartbeats and an authenticated **Distrib Builder** publication flow in its existing documentation. This project should acknowledge those concepts without treating the older builder as an update-discovery/install protocol.
+
+Potential integration points **to investigate later**:
+
+- Map Meeting's `device_type` to Update Hub compatible targets.
+- Associate Update Hub update status with devices known to Meeting.
+- Allow Meeting's admin interface to link to or embed Update Hub views.
+- Optionally bridge published Meeting distributions to Update Hub releases with explicit conversion rules.
+- Reuse identity or authorization only through a designed, verifiable trust integration, never by assuming possession of `device_key` is sufficient.
+- Keep the update check/download workflow working if Meeting is temporarily unavailable.
+
+Do not modify Meeting schemas, agents, routes or UI until a separate integration proposal and compatibility plan have been approved.
+
+**Documentation context (not a live code audit):** `integration.md`, `structure_globale.md`, `builder_api.md` and `encyclopedie-new.md` supplied with the Meeting project. They describe state last verified in 2025–early 2026; integration assumptions require later revalidation against the current code.
+
+## 11. MVP acceptance criteria
+
+The first working release should prove the following end-to-end behaviors:
+
+- A standalone containerized instance starts with persistent data and a reachable web UI and API.
+- An authenticated administrator creates one product, one device type and one release draft.
+- One release can contain **multiple artifacts** and a validated manifest.
+- A scripted publisher creates/updates a draft and publishes it without opening the UI.
+- A device check with an older compatible version receives the newest **eligible** published version.
+- An already-current, incompatible or differently channeled device receives no update.
+- The device can download every required file and verify checksums.
+- Running **Check for updates** alone never triggers installation.
+- Published artifacts cannot be silently replaced; withdrawing a release removes it from new checks.
+- An unauthorized publisher cannot publish; authentication and malformed input failures are handled safely.
+- Application restart/redeployment does not lose release metadata or artifact bytes.
+
+## 12. Delivery roadmap (proposal)
+
+| Stage | Scope | Exit criterion |
+|---|---|---|
+| **0 — Design** | Agree terminology, threat model, schemas, release lifecycle, installation boundaries and stack. | Written contracts approved. |
+| **1 — Core MVP** | Docker deployment, data/storage, admin UI, publisher API, check API, download API, multi-artifact releases. | All MVP acceptance criteria pass. |
+| **2 — Client reference** | Reusable protocol client plus at least one platform-specific installer example. | Check → approve → download → validate → install works on a test device. |
+| **3 — Reliability** | Signing, rollback guidance, resumable transfers, detailed reporting, backup/recovery and optional staged rollout. | Tests cover interrupted/bad updates and safe recovery. |
+| **4 — Meeting link** | Optional identity/type/status interoperability or UI extension. | Integration design approved and Meeting remains functional without Update Hub. |
+
+## 13. Open decisions / Décisions à prendre
+
+These choices are **not approved** by this document:
+
+1. Final product name, repository name and ownership.
+2. Backend and frontend technologies; database (embedded vs server) and artifact storage architecture.
+3. Whether device checks are authenticated by default or publicly accessible for selected products.
+4. Whether publisher API uses API keys, OAuth/OIDC, or another identity mechanism.
+5. Exact manifest schema, artifact ordering and device installer capability negotiation.
+6. Scope of first supported clients: Linux/Raspberry Pi, Windows, ESP32/embedded, etc.
+7. How hardware compatibility, dependencies and custom version formats are represented.
+8. Rollback support, forced/security updates and staged rollouts.
+9. Release signing/key management responsibilities and trust anchors on devices.
+10. Deployment topology, TLS termination and domain naming.
+11. Whether Meeting Distrib Builder remains an independent upstream producer or is replaced/bridged later.
+12. Whether to record device update history and how long to retain identifying telemetry.
+
+## 14. Document governance
+
+- This document is a **proposal**, not a claim that endpoints or features are already implemented.
+- Work remains **documentation-only** until implementation is explicitly authorized.
+- Keep the canonical checkout paths `/README.md` and `/AGENTS.md` for GitHub/Codex compatibility.
+- Each document carries its **own version** in the header. Increment the version whenever that document changes.
+- For deliverables outside a repository, use a versioned bundle folder, e.g. `device-update-hub/v0.1.0/README.md`, retaining the canonical filename.
+- Record significant design decisions and incompatible API changes before coding them.
+
+---
+
+*Initial specification: 0.1.0 — 2026-10-16.*
