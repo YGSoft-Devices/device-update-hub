@@ -1,4 +1,4 @@
-/* File: /web/styles.css | Version: 0.2.0 */
+/* File: /web/styles.css | Version: 0.4.1 */
 @import '@fontsource/dm-sans/latin-400.css';
 @import '@fontsource/dm-sans/latin-500.css';
 @import '@fontsource/dm-sans/latin-600.css';
@@ -6,7 +6,25 @@
 @import '@fontsource/ibm-plex-mono/latin-400.css';
 @import '@fontsource/ibm-plex-mono/latin-500.css';
 
+.admin-section { border-top: 1px solid var(--line); padding: 28px 0; max-width: 1000px; }
+.admin-section h2 { margin: 0 0 20px; font-size: 20px; }
+.admin-row { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.admin-row > div:first-child { flex: 1; min-width: 120px; display: grid; gap: 4px; }
+.admin-row > .icon-button:last-child { margin-left: auto; flex-shrink: 0; }
+.admin-subsection { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.admin-section .checkbox-label { display: flex; flex-direction: row; align-items: center; gap: 10px; line-height: 1.5; }
+.admin-section .banner { flex-wrap: wrap; }
+.grant-list { display: flex; flex-wrap: wrap; gap: 14px; padding: 12px; }
+.issued-token { display: grid; gap: 10px; margin: 16px 0; overflow-wrap: anywhere; }
+.issued-token input { width: 100%; min-width: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+.login-modes { display: flex; gap: 8px; margin: 0 0 20px; }
+.login-modes button { flex: 1; justify-content: center; }
+.login-modes button[aria-pressed="true"] { border-color: var(--green); background: var(--green-light); }
+
 .login-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.hub-update{max-width:720px;padding:0 0 28px}.hub-update h2,.system-controls h2{font-size:19px}.hub-candidate{padding:20px 0}.system-controls{border:0;padding:0;margin:0;min-width:0;display:grid;gap:20px}.system-controls button{justify-self:start}.update-wait{display:flex;align-items:center;gap:12px;padding:20px 0;color:var(--green)}.update-wait svg{flex-shrink:0}.hub-update .banner{margin:16px 0}.hub-update .release-notes{white-space:pre-wrap;overflow-wrap:anywhere}@media(prefers-reduced-motion:no-preference){.update-wait svg{animation:updating-spin 1s linear infinite}@keyframes updating-spin{to{transform:rotate(360deg)}}}
+.system-settings{max-width:520px;display:grid;gap:20px;padding:24px 0;border-top:1px solid var(--line)}.system-settings>button{justify-self:start}.system-settings .checkbox-label{display:flex;flex-direction:row;align-items:center;gap:10px}.checkbox-label input{width:18px;height:18px;flex-shrink:0;accent-color:var(--green)}
 .theme-control{display:flex;flex-direction:row;align-items:center;gap:6px;flex-shrink:0;width:119px;color:var(--muted)}
 .theme-control>svg{flex-shrink:0}.theme-control>select{width:97px;min-height:34px;padding:6px 18px 6px 8px;font-size:11px}
 :root[data-theme="light"]{color-scheme:light}

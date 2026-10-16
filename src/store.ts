@@ -1,10 +1,10 @@
-// File: /src/store.ts | Version: 0.1.0
+// File: /src/store.ts | Version: 0.3.1
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import semver from 'semver';
-import { permits, type Artifact, type Draft, type ManifestInput, type Principal, type Release } from './contract.js';
+import { adminSettingsSchema, permits, type AdminSettings, type Artifact, type Draft, type ManifestInput, type Principal, type Release } from './contract.js';
 
 export class HubError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); }
@@ -44,8 +44,9 @@ export class Store {
     this.db = new DatabaseSync(join(directory, 'catalog.db'));
     this.db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;');
     const schema = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
-    demand(schema.user_version === 0 || schema.user_version === 1, 500, 'schema_version', 'Unsupported database schema');
+    demand([0, 1, 2, 3].includes(schema.user_version), 500, 'schema_version', 'Unsupported database schema');
     this.db.exec(`
+      BEGIN IMMEDIATE;
       CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS releases (
         id TEXT PRIMARY KEY, product TEXT NOT NULL REFERENCES products(id),
@@ -60,7 +61,22 @@ export class Store {
         sequence INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL,
         actor TEXT NOT NULL, action TEXT NOT NULL, resource TEXT NOT NULL
       );
-      PRAGMA user_version=1;
+      CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+        role TEXT NOT NULL, products TEXT NOT NULL, password_hash TEXT NOT NULL,
+        enabled INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL, hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL, expires_at INTEGER NOT NULL
+      );
+      PRAGMA user_version=3;
+      COMMIT;
     `);
   }
   close(): void { this.db.close(); }
@@ -74,6 +90,19 @@ export class Store {
       .run(new Date().toISOString(), principal.id, action, resource);
   }
   events(): unknown[] { return this.db.prepare('SELECT * FROM audit ORDER BY sequence DESC LIMIT 100').all(); }
+  settings(): AdminSettings {
+    const row = this.db.prepare('SELECT body FROM settings WHERE id=1').get() as { body: string } | undefined;
+    return row ? adminSettingsSchema.parse(JSON.parse(row.body)) : { upload_max_bytes: null, upload_timeout_seconds: 3600 };
+  }
+  setSettings(input: AdminSettings, principal: Principal): AdminSettings {
+    demand(principal.role === 'admin', 403, 'forbidden', 'Administrator permission is required');
+    const settings = adminSettingsSchema.parse(input);
+    return this.transaction(() => {
+      this.db.prepare('INSERT INTO settings(id,body) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body').run(JSON.stringify(settings));
+      this.audit(principal, 'settings.updated', 'settings');
+      return settings;
+    });
+  }
   products(principal: Principal): { id: string; name: string }[] {
     return (this.db.prepare('SELECT * FROM products ORDER BY id').all() as { id: string; name: string }[])
       .filter((product) => permits(principal, product.id));

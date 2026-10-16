@@ -1,0 +1,12 @@
+# File: /compose.backup.yaml | Version: 0.1.0
+services:
+  hub:
+    environment:
+      DUH_BACKUP_KEY_FILE: /etc/duh-backup/key
+    volumes:
+      - type: bind
+        source: ${DUH_BACKUP_KEY_FILE:?Set DUH_BACKUP_KEY_FILE}
+        target: /etc/duh-backup/key
+        read_only: true
+        bind:
+          create_host_path: false

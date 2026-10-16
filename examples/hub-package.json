@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "product": "device-update-hub",
+  "version": "0.3.0",
+  "channel": "stable",
+  "target": {
+    "device_type": "hub-server",
+    "os": "linux",
+    "architecture": "amd64",
+    "hardware_revision": "docker",
+    "updater_protocol": 1
+  },
+  "database_schema": 3,
+  "image_path": "../.local/artifacts/hub-image.tar",
+  "image_id": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}

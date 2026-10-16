@@ -1,0 +1,20 @@
+{
+  "inbox": "/var/lib/device-update-hub-exchange/inbox",
+  "status": "/var/lib/device-update-hub-exchange/status",
+  "private_directory": "/var/lib/device-update-hub-updater",
+  "public_key_file": "/etc/device-update-hub/updater-public.pem",
+  "compose_file": "/etc/device-update-hub/compose.yaml",
+  "compose_project": "device-update-hub",
+  "data_volume": "device-update-hub_hub-data",
+  "health_url": "http://127.0.0.1:3210/health",
+  "target": {
+    "device_type": "hub-server",
+    "os": "linux",
+    "architecture": "amd64",
+    "hardware_revision": "docker",
+    "updater_protocol": 1
+  },
+  "channel": "stable",
+  "current_version": "0.1.0",
+  "operation_timeout_seconds": 3600
+}

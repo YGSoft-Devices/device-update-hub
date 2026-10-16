@@ -1,56 +1,78 @@
 {
-  "manifest_version": "0.1.12",
+  "manifest_version": "0.1.32",
   "files": {
-    ".dockerignore": "0.1.1",
+    ".dockerignore": "0.1.3",
     ".gitattributes": "0.1.2",
     ".github/workflows/ci.yml": "0.1.0",
     ".gitignore": "0.1.1",
-    "AGENTS.md": "0.2.2",
-    "CHANGELOG.md": "0.1.6",
+    "AGENTS.md": "0.5.1",
+    "CHANGELOG.md": "0.5.4",
+    "compose.backup.yaml": "0.1.0",
+    "compose.self-update.yaml": "0.1.0",
     "compose.yaml": "0.1.0",
+    "deployment/bootstrap-debian.sh": "0.1.0",
+    "deployment/device-update-hub-updater.service": "0.1.1",
+    "deployment/reverse-proxy-gateway.conf": "0.1.0",
     "device-update-hub.code-workspace": "0.1.0",
     "Dockerfile": "0.1.1",
-    "docs/DECISIONS.md": "0.1.1",
-    "docs/DELIVERY.md": "0.2.3",
-    "docs/DEVELOPERS.md": "0.1.0",
-    "docs/OPERATIONS.md": "0.2.0",
+    "docs/ADMINISTRATION.md": "0.1.0",
+    "docs/DECISIONS.md": "0.3.0",
+    "docs/DELIVERY.md": "0.6.3",
+    "docs/DEPLOYMENT.md": "0.3.0",
+    "docs/DEVELOPERS.md": "0.3.0",
+    "docs/OPERATIONS.md": "0.5.0",
+    "docs/SELF_UPDATE.md": "0.3.1",
     "examples/check-request.json": "0.1.0",
-    "examples/publish-http.ps1": "0.1.3",
+    "examples/host-updater.json": "0.1.0",
+    "examples/hub-package.json": "0.1.1",
+    "examples/publish-http.ps1": "0.2.0",
     "examples/release-plan.json": "0.1.0",
-    "package-lock.json": "0.1.3",
-    "package.json": "0.2.0",
+    "examples/web-update.json": "0.1.0",
+    "package-lock.json": "0.1.6",
+    "package.json": "0.4.0",
     "playwright.config.ts": "0.1.0",
-    "README.md": "0.3.1",
+    "README.md": "0.7.1",
     "scripts/check.ts": "0.1.0",
     "scripts/download.ts": "0.1.0",
     "scripts/e2e-server.ts": "0.1.0",
+    "scripts/host-updater.ts": "0.2.0",
     "scripts/init.ts": "0.1.0",
-    "scripts/publish.ts": "0.2.0",
+    "scripts/package-hub.ts": "0.1.0",
+    "scripts/publish.ts": "0.3.0",
     "scripts/versions.mjs": "0.1.0",
-    "src/app.ts": "0.1.5",
-    "src/client.ts": "0.1.1",
-    "src/contract.ts": "0.2.0",
-    "src/server.ts": "0.1.0",
-    "src/store.ts": "0.1.0",
-    "tests/api.test.ts": "0.2.3",
-    "tests/browser/workflow.spec.ts": "0.2.1",
+    "src/app.ts": "0.4.1",
+    "src/backups.ts": "0.1.3",
+    "src/client.ts": "0.2.0",
+    "src/contract.ts": "0.3.1",
+    "src/docker-deployment.ts": "0.2.0",
+    "src/hub-update.ts": "0.2.0",
+    "src/identity.ts": "0.1.2",
+    "src/server.ts": "0.3.0",
+    "src/store.ts": "0.3.1",
+    "tests/api.test.ts": "0.4.0",
+    "tests/backups.test.ts": "0.2.1",
+    "tests/browser/workflow.spec.ts": "0.4.1",
     "tests/contract.test.ts": "0.1.1",
+    "tests/hub-update.test.ts": "0.3.0",
+    "tests/identity.test.ts": "0.2.0",
     "tests/versions.test.ts": "0.1.1",
     "tsconfig.json": "0.1.0",
     "tsconfig.server.json": "0.1.0",
-    "vite.config.ts": "0.1.0",
-    "web/App.tsx": "0.2.0",
-    "web/copy.ts": "0.1.1",
+    "vite.config.ts": "0.1.1",
+    "web/Administration.tsx": "0.1.2",
+    "web/App.tsx": "0.4.2",
+    "web/copy.ts": "0.4.0",
     "web/index.html": "0.1.2",
     "web/main.tsx": "0.1.1",
     "web/public/icon.svg": "0.1.0",
-    "web/styles.css": "0.2.0",
+    "web/styles.css": "0.4.1",
+    "web/System.tsx": "0.3.0",
     "web/theme.tsx": "0.1.1"
   },
   "snapshots": {
     ".dockerignore": {
-      "version": "0.1.1",
-      "sha256": "29e870827eddece2d484743abe1f7b87953ef6c0ae34454f4b875df4572c1e20"
+      "version": "0.1.3",
+      "sha256": "01d5be187f1f791cccd424394863ee7e13d8d6bf318342cbf013f7fe38c7edab"
     },
     ".gitattributes": {
       "version": "0.1.2",
@@ -65,16 +87,36 @@
       "sha256": "eb03849a69a1a103ce428f90337610d80f4e5095863576d5c59870bed8cc1dec"
     },
     "AGENTS.md": {
-      "version": "0.2.2",
-      "sha256": "56c276b42bf43b0588910edab0ca00b665e1286887c0d390cabd6f790005f8d4"
+      "version": "0.5.1",
+      "sha256": "7dcb9df28b9fb56ecb5beb5f4f7b311c420b8a641e07c5077ee49983b8f47a14"
     },
     "CHANGELOG.md": {
-      "version": "0.1.6",
-      "sha256": "5431d7bed48ef49b745ba904070d5f4661155dc4dba7bddeac5780c81e2728fc"
+      "version": "0.5.4",
+      "sha256": "d4097105f14c70b93ced33442c52da5dde72e9718d90e607ad0ae9c0f16dfc33"
+    },
+    "compose.backup.yaml": {
+      "version": "0.1.0",
+      "sha256": "3679d4d3f48b6b2bb20414fb677acd6063d89cab3f482be93d451d41b967f767"
+    },
+    "compose.self-update.yaml": {
+      "version": "0.1.0",
+      "sha256": "dc38e61df760a27df864ef4143819500da1daf06a7f1fd80297265b64d6e7274"
     },
     "compose.yaml": {
       "version": "0.1.0",
       "sha256": "39f406b276c4b2709bb85e6ac65a6c9d97f64e3fdf70761f3b55e805b899ed52"
+    },
+    "deployment/bootstrap-debian.sh": {
+      "version": "0.1.0",
+      "sha256": "2d465fe0cd368a3847bccbf89fe4c5ba625b5859a27fb799cee774288eceaa9c"
+    },
+    "deployment/device-update-hub-updater.service": {
+      "version": "0.1.1",
+      "sha256": "7f7306caa37d7a34f1b7910b2c2a1413561843a0398dabf7e2714d41ca5033d7"
+    },
+    "deployment/reverse-proxy-gateway.conf": {
+      "version": "0.1.0",
+      "sha256": "8f0f7540d493145eb40593b2249f9e04bcb86a5cfb8818c368523f0293878b39"
     },
     "device-update-hub.code-workspace": {
       "version": "0.1.0",
@@ -84,49 +126,73 @@
       "version": "0.1.1",
       "sha256": "467c78dcdf9734cc98921e8d781327aa6a60e9432badff4cf4e1993e9e9e35f8"
     },
+    "docs/ADMINISTRATION.md": {
+      "version": "0.1.0",
+      "sha256": "d08e96998d718aed248624ef6affbce971710caec20538f993bc39a144025891"
+    },
     "docs/DECISIONS.md": {
-      "version": "0.1.1",
-      "sha256": "82a216e422a8d3c9ef4a0062d2e30f0da042abc127b87ff47676b84e516b13b5"
+      "version": "0.3.0",
+      "sha256": "2d90076fe59d08e65893613278f05cb66fd7fe66ed46632e51c84dd29193b579"
     },
     "docs/DELIVERY.md": {
-      "version": "0.2.3",
-      "sha256": "e2b60a9598c94c67f14047681350a4354e88bc06230eb9f0b09531c064541aa4"
+      "version": "0.6.3",
+      "sha256": "72b292533c77e2baebfbdd0a64e4eea90c5022a362b47eb14ffaeb87d0b3312e"
+    },
+    "docs/DEPLOYMENT.md": {
+      "version": "0.3.0",
+      "sha256": "1a48c0c3fcd65835d59dc11acf60715b330053b7da92941ded2b7d1dcf8c7258"
     },
     "docs/DEVELOPERS.md": {
-      "version": "0.1.0",
-      "sha256": "0902a7479c64e71d95159096464df7e9e005961253c8714cc9c3c9898f8a8b29"
+      "version": "0.3.0",
+      "sha256": "78a43fa00c723270dbaa462a37c0d50aa793eb5c38836a2ce04a53e73225a501"
     },
     "docs/OPERATIONS.md": {
-      "version": "0.2.0",
-      "sha256": "7b5fd84fccd1e886d4b95f9914838791479a15d277b78b7f8ddfd0de0c6f7715"
+      "version": "0.5.0",
+      "sha256": "f75f0e8126840628cb8d50a0ef34e487acdaa425d8b37109cd51933ba7fd1c51"
+    },
+    "docs/SELF_UPDATE.md": {
+      "version": "0.3.1",
+      "sha256": "6d9db82482dba3d97ff9e2a7e88d6cb85d4f1f98dce2cee19f70fd1c3806bcb1"
     },
     "examples/check-request.json": {
       "version": "0.1.0",
       "sha256": "ba2d0838af5dee68f9b2cc749c07c88e2b8f7d33fd1a1f261817f1a42d865d21"
     },
+    "examples/host-updater.json": {
+      "version": "0.1.0",
+      "sha256": "8245baee4c529ae8d39f5aa427fdbec3ae61d32904992f4a597d8a5df9da722b"
+    },
+    "examples/hub-package.json": {
+      "version": "0.1.1",
+      "sha256": "4469693942668af1b0ed2b1821f6e03fdb6d1d72f147ad49639a7479367b95a4"
+    },
     "examples/publish-http.ps1": {
-      "version": "0.1.3",
-      "sha256": "a773a74b25240564cfb7e71ee91f954ea4124455ba0ef2066349ed22fa9067ac"
+      "version": "0.2.0",
+      "sha256": "d05500ad7830605e7f41295c35d5961cf4383ca35ba53e23cfa04c71084de86c"
     },
     "examples/release-plan.json": {
       "version": "0.1.0",
       "sha256": "e886ea9297a13cf0582a7d82aea8d0631ef8113c00333d912df4cb7543650cf3"
     },
+    "examples/web-update.json": {
+      "version": "0.1.0",
+      "sha256": "21dab4fd511ef445aa43b29e7be22d95a74140f12cfc1722a22b0bb5bcbb679a"
+    },
     "package-lock.json": {
-      "version": "0.1.3",
-      "sha256": "c1fc7e5de19db7060e05c4c32c4f724f9053bd8446228f4ee2e2442b7b09bbe8"
+      "version": "0.1.6",
+      "sha256": "0ec4d29f2df7f30747026a1e86393792c35fb8ec324532d2ddbb06e31e015fd2"
     },
     "package.json": {
-      "version": "0.2.0",
-      "sha256": "480927973240f978846295235f96365f7fa0cdc6cfb183293f40f149e093823a"
+      "version": "0.4.0",
+      "sha256": "b67b4705593667b10c953dd650f28a8e4d577a95e00c637f33404deeae06f748"
     },
     "playwright.config.ts": {
       "version": "0.1.0",
       "sha256": "c7d5661d28120d91e6a2f86a01d750ed6fb9cbc08db271dee887f3341afab72b"
     },
     "README.md": {
-      "version": "0.3.1",
-      "sha256": "b22d54ba21b180f842564e51504f871d3867ad1ab6578151c6343ef771f2616d"
+      "version": "0.7.1",
+      "sha256": "9087417d48980e6f72d40b06ea46d8b5677a02e8ecb6fece67a6d3198b93ed37"
     },
     "scripts/check.ts": {
       "version": "0.1.0",
@@ -140,49 +206,85 @@
       "version": "0.1.0",
       "sha256": "5051ea59681d4e11298e3be65bb0cfc9f04c872cfd1f0a7f7cc55673690a6027"
     },
+    "scripts/host-updater.ts": {
+      "version": "0.2.0",
+      "sha256": "ef28518192feae217c3134245259be3af31838dae8a31ceb54742b37e2ae7729"
+    },
     "scripts/init.ts": {
       "version": "0.1.0",
       "sha256": "d86a23a0c4afc8dfa7cb09240b92c0725206faba558769eb5b45eb89df6ef84b"
     },
+    "scripts/package-hub.ts": {
+      "version": "0.1.0",
+      "sha256": "460476d1cb411d3bc4ebd730357fd6c16f71c5982ac907fc18e2e2e3d7574c05"
+    },
     "scripts/publish.ts": {
-      "version": "0.2.0",
-      "sha256": "3da8c6bc14dec1c6c5098672e69df35bedbaca656f2737d383c4a076137f85ef"
+      "version": "0.3.0",
+      "sha256": "827f3c1fc22dcf2893c904bb3c884d593d0855ab151fa3082c071dee0b09b9c7"
     },
     "scripts/versions.mjs": {
       "version": "0.1.0",
       "sha256": "013cdd6599c1d14d04f5759710b5202f3c40f34d1c466d9cfdebd4ad10cc9ce9"
     },
     "src/app.ts": {
-      "version": "0.1.5",
-      "sha256": "dd01e52e1e651d7aaa79f403e30750612d3e9c542f041a1b306a499d9bc63b7e"
+      "version": "0.4.1",
+      "sha256": "4a0884677899297c5edc1d137a94e4befd01cfb9199000d63d9140182a5ead3a"
+    },
+    "src/backups.ts": {
+      "version": "0.1.3",
+      "sha256": "96b948d87fdde79a37f9e877c7ad8fa063eade616908e73dc8d0712d103e7080"
     },
     "src/client.ts": {
-      "version": "0.1.1",
-      "sha256": "4acc6d0fdb21223e7f48e7710a00a78cf8b7990b7b2cfa8ef5595986be9875f4"
+      "version": "0.2.0",
+      "sha256": "fa3374d709b8d9438e2b51af8ef598ea7d53e8c2b1d9bcce642876ecdb9fbe2b"
     },
     "src/contract.ts": {
+      "version": "0.3.1",
+      "sha256": "9a73e08e7dd8d06c8f218a36741c57ae36cd92c94c3e7a5a315045bafce27f9a"
+    },
+    "src/docker-deployment.ts": {
       "version": "0.2.0",
-      "sha256": "c816e686e3009d4ba250b30947612281f403505a6edf21df4a84fb38ea430186"
+      "sha256": "614d59fa065bd67db8d8035193b056c8f99297011eba747cb19802c3c3d78535"
+    },
+    "src/hub-update.ts": {
+      "version": "0.2.0",
+      "sha256": "47cdf4224a495d71f5d87537561202f8520db39f008c12b71e8c9b55fe13650a"
+    },
+    "src/identity.ts": {
+      "version": "0.1.2",
+      "sha256": "f44c818f0ceb025f5630f4143b24e6ea46c0a367f6928fb31266ed7f55f94948"
     },
     "src/server.ts": {
-      "version": "0.1.0",
-      "sha256": "9d91e9989d0d5c8a25f92208e5452d61f16c79f1b7a5f73351ca16ed6b4d9dcd"
+      "version": "0.3.0",
+      "sha256": "d441ff462f713e1e3f4b3173206908c3db5cecbe5912d6a57ac11a818b4964f6"
     },
     "src/store.ts": {
-      "version": "0.1.0",
-      "sha256": "2777d41e5abcdfed7861233a3dfc7538b4e78e484be9a848b953275850d79510"
+      "version": "0.3.1",
+      "sha256": "417fd42e56e3c27455fde85cc5bf34acbffceca0c01f0add59cf92001960cea1"
     },
     "tests/api.test.ts": {
-      "version": "0.2.3",
-      "sha256": "b72a56fe95c2f6d3a8b47382f202788329ffa0a7a6dd8f9dc12e04684eba2359"
+      "version": "0.4.0",
+      "sha256": "2a9e1ab64aae6a6f8effeb8e5ebecdb68bb1ad543d9c5cfe5093b8008988009c"
+    },
+    "tests/backups.test.ts": {
+      "version": "0.2.1",
+      "sha256": "184d1bdc67119de2df152491d9e60103b5dd3ee4c2217813c57a7ac73f579baf"
     },
     "tests/browser/workflow.spec.ts": {
-      "version": "0.2.1",
-      "sha256": "f2db7fc3d3cfec3a49bfe862a052059163c5e1b03fe6b56ebfa73cfb2d1c8e1a"
+      "version": "0.4.1",
+      "sha256": "9f274bd7c6491b021e0b00a984009b7a7e34b1fa1ffe2be2454f7f769c16c473"
     },
     "tests/contract.test.ts": {
       "version": "0.1.1",
       "sha256": "6479cc63853d0a41e277d78e851c4fae17a81fec9ea68e959414288a9a9e5a0c"
+    },
+    "tests/hub-update.test.ts": {
+      "version": "0.3.0",
+      "sha256": "caffe8bc564dbcfa183097648b4b15c1527eee743fd2507612d544ef4f8c55ce"
+    },
+    "tests/identity.test.ts": {
+      "version": "0.2.0",
+      "sha256": "c566b2161ac44d9f22df82e4afbe54fd6f255a70aa8b2fdc4d1153fa937e0d11"
     },
     "tests/versions.test.ts": {
       "version": "0.1.1",
@@ -197,16 +299,20 @@
       "sha256": "44fc646bf3548ef6afe91ebb4b4d159b13f37b8d74e94af032fd4689fb96a561"
     },
     "vite.config.ts": {
-      "version": "0.1.0",
-      "sha256": "ad12080298f0c693a7216795fefcedc237eb9e127d3f753a36e38255ec571d76"
+      "version": "0.1.1",
+      "sha256": "9542f7d62ea95403932ba9bbea6636cbbc030d6a80698e1bbc0a8d6bdfc32416"
+    },
+    "web/Administration.tsx": {
+      "version": "0.1.2",
+      "sha256": "e0e7671d02b2fd7bcea6abe0ec7d18718e6fe0cee81c82dc61fd59be9e1be754"
     },
     "web/App.tsx": {
-      "version": "0.2.0",
-      "sha256": "c477dbca482551215582c4a76d8bc6af65551465959f9e452482a43b816993b0"
+      "version": "0.4.2",
+      "sha256": "e32ed2c91bb27ed121a0c272892a4ff107d39a01dc853e721d3e5c0c885f6ca0"
     },
     "web/copy.ts": {
-      "version": "0.1.1",
-      "sha256": "4ada021a286e113707cb95a15cbc221013d8754dafbe2591603a4a303086f16c"
+      "version": "0.4.0",
+      "sha256": "887a2776e7faeb438795a1574fc2b1333eab22adb33ca14e3edd137878c22493"
     },
     "web/index.html": {
       "version": "0.1.2",
@@ -221,8 +327,12 @@
       "sha256": "0145ee0f9cd06445734973f7ff4c65c29be9d42d9087184ba1ad49dc7105cef5"
     },
     "web/styles.css": {
-      "version": "0.2.0",
-      "sha256": "4af3d03819232135721f58df19096de1c2038f4f7e33d0c770606820c7808c44"
+      "version": "0.4.1",
+      "sha256": "db496448c450f7bd5a52679d8944ce21d0bafcb27fab727b2f5ddf843a318558"
+    },
+    "web/System.tsx": {
+      "version": "0.3.0",
+      "sha256": "b0eb0de37c6bc08bc2f6452b85a12dea4d2fd75e213081203c7d3d7d313b87d4"
     },
     "web/theme.tsx": {
       "version": "0.1.1",

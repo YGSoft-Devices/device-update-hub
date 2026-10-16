@@ -1,5 +1,21 @@
-// File: /web/copy.ts | Version: 0.1.1
+// File: /web/copy.ts | Version: 0.4.0
 export const en = {
+  users: 'Users', createUser: 'Create user', editUser: 'Edit user', saveUser: 'Save user', userSaved: 'User saved', username: 'Username', password: 'Password',
+  role: 'Role', enabled: 'Enabled', disabled: 'Disabled', productGrants: 'Product grants', resetPassword: 'Reset password', newPassword: 'New password',
+  passwordReset: 'Password reset; sessions and API tokens revoked', revokeSessions: 'Revoke sessions', sessionsRevoked: 'Sessions revoked',
+  apiTokens: 'API tokens', tokenName: 'Token name', expiryDays: 'Expires in (days)', issueToken: 'Issue token', issuedToken: 'New API token (shown once)', revokeToken: 'Revoke token', dismissToken: 'Dismiss token',
+  account: 'Account', currentPassword: 'Current password', changePassword: 'Change password', passwordLogin: 'Password', tokenLogin: 'API token',
+  backups: 'Synology backups', backupUnavailable: 'Protected host backup configuration not installed', agentStatus: 'Agent', ready: 'Ready', unavailable: 'Unavailable',
+  scheduledBackups: 'Enable scheduled backups', nasAddress: 'NAS IPv4 address', smbShare: 'SMB share', backupDirectory: 'Repository directory', smbUsername: 'SMB username', smbDomain: 'SMB domain', smbPassword: 'SMB password',
+  confirmSmb3: 'The Synology share requires SMB 3 (minimum protocol configured on the NAS)', recoveryPassword: 'Repository recovery password', recoverySaved: 'The recovery password is stored safely outside this VM',
+  backupTime: 'Daily time (UTC)', keepDaily: 'Keep daily snapshots', keepWeekly: 'Keep weekly snapshots', keepMonthly: 'Keep monthly snapshots', saveBackup: 'Save backup settings', testConnection: 'Test connection', backupNow: 'Back up now',
+  backupStates: { queued: 'Queued', running: 'Running', succeeded: 'Completed', failed: 'Failed', recovery_required: 'Recovery required' },
+  hubUpdates: 'Hub updates', updaterDisabled: 'Host updater not configured', updaterUnavailable: 'Host updater unavailable', installUpdate: 'Install update',
+  confirmHubUpdate: 'Install this signed Hub release? The server will restart and active transfers may be interrupted.',
+  preparingUpdate: 'Preparing signed package', updateRunning: 'Hub update in progress', waitingServer: 'Waiting for server restart', operatorRecovery: 'Operator recovery required',
+  jobStates: { queued: 'Queued', verifying: 'Verifying', stopping: 'Stopping', backing_up: 'Backing up', starting: 'Starting', rolling_back: 'Rolling back', succeeded: 'Installed', rolled_back: 'Rolled back', failed: 'Failed', recovery_required: 'Recovery required' },
+  system: 'System', uploadSettings: 'Artifact uploads', limitUpload: 'Limit artifact size', maximumUpload: 'Maximum artifact size (MiB)',
+  uploadTimeout: 'Upload timeout (seconds)', saveSettings: 'Save settings', settingsSaved: 'Settings saved',
   theme: 'Theme', systemTheme: 'System', lightTheme: 'Light', darkTheme: 'Dark',
   brand: 'Device Update Hub', console: 'Release console', local: 'Local workspace',
   signIn: 'Sign in', credential: 'Access token', signOut: 'Sign out', session: 'Session',

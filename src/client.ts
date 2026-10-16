@@ -1,4 +1,4 @@
-// File: /src/client.ts | Version: 0.1.1
+// File: /src/client.ts | Version: 0.2.0
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, createWriteStream, existsSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -31,7 +31,7 @@ export function readClientToken(role: 'publisher' | 'reader', product: string, e
   if (!credential) throw new Error(`No scoped ${role} credential for this product`);
   return credential.token;
 }
-type RequestOptions = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; headers?: Record<string, string> };
+type RequestOptions = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; headers?: Record<string, string>; timeoutMs?: number };
 
 export class HubClient {
   readonly #origin: string;
@@ -44,7 +44,7 @@ export class HubClient {
     if (!/^\/api\/v1\/[a-zA-Z0-9/_-]+$/.test(path)) throw new Error('Only same-origin API v1 paths are allowed');
     const { body } = options;
     return fetch(new URL(path, this.#origin), {
-      method: options.method ?? 'GET', redirect: 'error', signal: AbortSignal.timeout(90000),
+      method: options.method ?? 'GET', redirect: 'error', signal: AbortSignal.timeout(options.timeoutMs ?? (body instanceof FormData || path.endsWith('/download') ? 3600000 : 90000)),
       headers: { ...options.headers, Authorization: `Bearer ${this.#token}`,
         ...(body === undefined || body instanceof FormData ? {} : { 'Content-Type': 'application/json' }) },
       ...(body === undefined ? {} : { body: body instanceof FormData ? body : JSON.stringify(body) }),

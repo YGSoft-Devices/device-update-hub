@@ -1,15 +1,19 @@
-// File: /web/App.tsx | Version: 0.2.0
+// File: /web/App.tsx | Version: 0.4.2
 import { useDeferredValue, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpRight, Box, CheckCircle2, ChevronRight, CircleAlert, Download, FileCode2, FilePlus2, Folder, KeyRound, Layers3, LogOut, PackageCheck, Plus, Radio, RefreshCw, Search, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import type { Artifact, Draft, Principal, Release, Target } from '../src/contract.js';
 import { copy as text } from './copy.js';
 import { ThemeControl } from './theme.js';
+import { System, type HubStatus } from './System.js';
+import { Settings } from 'lucide-react';
+import { Account } from './Administration.js';
 
 type Product = { id: string; name: string };
+declare const __APP_VERSION__: string;
 type Event = { sequence: number; at: string; actor: string; action: string; resource: string };
 type Manifest = { artifacts: (Artifact & { download_url: string })[]; version: string; [key: string]: unknown };
 type CheckResult = { update_available: boolean; release?: { version: string; manifest_url: string } };
-type View = 'releases' | 'products' | 'activity' | 'check';
+type View = 'releases' | 'products' | 'activity' | 'check' | 'system' | 'account';
 const emptyTarget = (): Target => ({ device_type: '', os: '', architecture: '', hardware_revision: '', updater_protocol: 1 });
 const api = '/api/v1';
 function formatSize(size: number): string { return size < 1024 ? `${size} B` : size < 1048576 ? `${(size / 1024).toFixed(1)} KiB` : `${(size / 1048576).toFixed(1)} MiB`; }
@@ -17,10 +21,11 @@ function date(value: string): string { return new Date(value).toLocaleString('en
 async function request<Value>(token: string, path: string, init: RequestInit = {}): Promise<Value> {
   let response: Response;
   try {
-    response = await fetch(path, { ...init, headers: { ...(init.body === undefined || init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...init.headers, Authorization: `Bearer ${token}` } });
+    response = await fetch(path, { ...init, credentials: 'same-origin', redirect: 'error', headers: { ...(init.body === undefined || init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), ...init.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
   } catch { throw new Error(text.connectionError); }
   if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+    const body = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+    if (response.status === 401 && body?.error?.code !== 'invalid_credentials') window.dispatchEvent(new Event('duh-session-ended'));
     throw new Error(body?.error?.message ?? `HTTP ${response.status}`);
   }
   return response.json() as Promise<Value>;
@@ -46,6 +51,8 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 export function App() {
   const [token, setToken] = useState('');
   const [inputToken, setInputToken] = useState('');
+  const [loginMode, setLoginMode] = useState<'password' | 'token'>('token');
+  const [username, setUsername] = useState(''); const [password, setPassword] = useState('');
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [view, setView] = useState<View>('releases');
   const [products, setProducts] = useState<Product[]>([]);
@@ -57,6 +64,7 @@ export function App() {
   const [productFilter, setProductFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [busy, setBusy] = useState(false);
+  const [hubUpdating, setHubUpdating] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [editor, setEditor] = useState<Draft | null>(null);
@@ -74,6 +82,12 @@ export function App() {
   const writable = principal?.role !== 'reader';
   const filtered = releases.filter((release) => (!productFilter || release.product === productFilter)
     && (!statusFilter || release.status === statusFilter) && `${release.product} ${release.version} ${release.channel}`.toLowerCase().includes(query));
+  useEffect(() => {
+    let active = true;
+    void request<{ principal: Principal | null }>('', `${api}/auth/session`).then(async ({ principal: session }) => { if (!active || !session) return; await refresh('', session); if (active) { setPrincipal(session); setView(session.role === 'reader' ? 'check' : 'releases'); } }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  useEffect(() => { const ended = () => { if (principal) { signOut(); setError(text.sessionEnded); } }; window.addEventListener('duh-session-ended', ended); return () => window.removeEventListener('duh-session-ended', ended); }, [principal]);
   async function run(task: () => Promise<void>) {
     setBusy(true); setError(''); setNotice('');
     try { await task(); } catch (failure) { setError(failure instanceof Error ? failure.message : text.connectionError); }
@@ -81,12 +95,15 @@ export function App() {
   }
   async function refresh(activeToken = token, activePrincipal = principal) {
     if (!activePrincipal) return;
-    const [nextProducts, nextReleases, nextEvents] = await Promise.all([
+    const [nextProducts, nextReleases, nextEvents, hubStatus] = await Promise.all([
       request<Product[]>(activeToken, `${api}/admin/products`),
       activePrincipal.role !== 'reader' ? request<Release[]>(activeToken, `${api}/publishing/releases`) : Promise.resolve([]),
       activePrincipal.role === 'admin' ? request<Event[]>(activeToken, `${api}/admin/audit-events`) : Promise.resolve([]),
+      activePrincipal.role === 'admin' ? request<HubStatus>(activeToken, `${api}/admin/hub-update`) : Promise.resolve(null),
     ]);
     setProducts(nextProducts); setReleases(nextReleases); setEvents(nextEvents);
+    setHubUpdating(hubStatus?.job?.maintenance === true);
+    if (hubStatus?.job?.maintenance) setView('system');
   }
   function choose(release: Release) {
     setSelectedId(release.id);
@@ -96,15 +113,17 @@ export function App() {
   async function signIn(event: FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const activeToken = inputToken.trim();
+      const activeToken = loginMode === 'token' ? inputToken.trim() : '';
+      if (loginMode === 'password') await request('', `${api}/auth/login`, { method: 'POST', body: JSON.stringify({ username, password }) });
       const session = await request<Principal>(activeToken, `${api}/session`);
       await refresh(activeToken, session);
-      setToken(activeToken); setPrincipal(session); setInputToken('');
-      setView(session.role === 'reader' ? 'check' : 'releases');
+      setToken(activeToken); setPrincipal(session); setInputToken(''); setPassword('');
+      if (session.role !== 'admin') setView(session.role === 'reader' ? 'check' : 'releases');
     });
   }
   function signOut() {
-    setToken(''); setPrincipal(null); setInputToken(''); setReleases([]); setProducts([]); setEvents([]);
+    if (principal && !token) void request('', `${api}/auth/logout`, { method: 'POST' }).catch(() => {});
+    setToken(''); setPrincipal(null); setInputToken(''); setReleases([]); setProducts([]); setEvents([]); setHubUpdating(false); setView('releases');
     setSelectedId(''); setManifest(null); setEditor(null); setCheckResult(null); setDownloadManifest(null); setError(''); setNotice('');
   }
   async function mutation(path: string, method = 'POST', body?: unknown) {
@@ -132,7 +151,7 @@ export function App() {
   }
   async function download(artifact: Manifest['artifacts'][number]) {
     await run(async () => {
-      const response = await fetch(artifact.download_url, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(artifact.download_url, { credentials: 'same-origin', redirect: 'error', headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
       const checksum = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (value) => value.toString(16).padStart(2, '0')).join('');
@@ -148,9 +167,10 @@ export function App() {
     <div className="login-header"><div className="login-brand"><span className="brand-mark"><Layers3 /></span><span>{text.brand}</span></div><ThemeControl /></div>
     <form className="login-form" onSubmit={(event) => { void signIn(event); }}>
       <span className="eyebrow"><KeyRound size={16} /> {text.console}</span><h1>{text.signIn}</h1>
-      <label>{text.credential}<input type="password" autoComplete="off" required value={inputToken} onChange={(event) => setInputToken(event.target.value)} /></label>
+      <div className="login-modes" role="group" aria-label={text.signIn}><button type="button" aria-pressed={loginMode === 'password'} onClick={() => setLoginMode('password')}>{text.passwordLogin}</button><button type="button" aria-pressed={loginMode === 'token'} onClick={() => setLoginMode('token')}>{text.tokenLogin}</button></div>
+      {loginMode === 'token' ? <label>{text.credential}<input type="password" autoComplete="off" required value={inputToken} onChange={(event) => setInputToken(event.target.value)} /></label> : <><label>{text.username}<input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} /></label><label>{text.password}<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label></>}
       {banner}<button className="primary" disabled={busy} type="submit">{busy ? text.uploading : text.signIn}<ArrowUpRight size={18} /></button>
-    </form><div className="login-footer"><span className="status-dot" />{text.local}<span>v0.1.0</span></div>
+    </form><div className="login-footer"><span className="status-dot" />{text.local}<span>v{__APP_VERSION__}</span></div>
   </main>;
 
   return <div className="app-shell">
@@ -159,12 +179,14 @@ export function App() {
     </header>
     <div className="workspace-bar"><span><Radio size={14} />{text.local}</span><span>{text.console}<ChevronRight size={14} />{text[view]}</span></div>
     <nav className="main-nav" aria-label={text.console}>
-      {([{ id: 'releases', icon: Box, visible: writable }, { id: 'products', icon: Folder, visible: writable }, { id: 'activity', icon: Radio, visible: admin }, { id: 'check', icon: Search, visible: true }] as const).filter((item) => item.visible).map(({ id, icon: Icon }) =>
-        <button key={id} type="button" className={view === id ? 'active' : ''} aria-current={view === id ? 'page' : undefined} onClick={() => { setView(id); setError(''); setNotice(''); }}><Icon size={17} />{text[id]}{id === 'releases' && <span className="nav-count">{releases.length}</span>}</button>)}
+      {([{ id: 'releases', icon: Box, visible: writable }, { id: 'products', icon: Folder, visible: writable }, { id: 'activity', icon: Radio, visible: admin }, { id: 'check', icon: Search, visible: true }, { id: 'system', icon: Settings, visible: admin }, { id: 'account', icon: KeyRound, visible: !token }] as const).filter((item) => item.visible).map(({ id, icon: Icon }) =>
+        <button key={id} type="button" disabled={hubUpdating && id !== 'system'} className={view === id ? 'active' : ''} aria-current={view === id ? 'page' : undefined} onClick={() => { setView(id); setError(''); setNotice(''); }}><Icon size={17} />{text[id]}{id === 'releases' && <span className="nav-count">{releases.length}</span>}</button>)}
       <IconButton label={text.refresh} disabled={busy} onClick={() => { void run(() => refresh()); }}><RefreshCw size={17} /></IconButton>
     </nav>
     <main className="workspace">
       {banner}
+      {view === 'system' && admin && <System token={token} call={request} onUpdating={setHubUpdating} />}
+      {view === 'account' && <Account token={token} call={request} disabled={hubUpdating} />}
       {view === 'releases' && <>
         <section className="page-heading"><div><span className="eyebrow">{text.console}</span><h1>{text.releases}<span className="heading-count">{releases.length.toString().padStart(2, '0')}</span></h1></div><button className="primary" disabled={busy || !products.length} onClick={() => { creationKey.current = crypto.randomUUID(); setEditingId(''); setEditor({ product: products[0]!.id, version: '', channel: 'stable', release_notes: '', targets: [emptyTarget()] }); }}><Plus size={17} />{text.newRelease}</button></section>
         <section className="summary-strip" aria-label={text.catalog}>
@@ -226,7 +248,7 @@ export function App() {
         </form><section className="check-result" aria-live="polite">{checkResult ? <><span className="result-icon"><PackageCheck size={30} /></span><h2>{checkResult.update_available ? text.available : text.noUpdate}</h2>{checkResult.release && <><strong className="result-version">{checkResult.release.version}</strong><button disabled={busy} onClick={() => { void run(async () => setDownloadManifest(await request<Manifest>(token, checkResult.release!.manifest_url))); }}><FileCode2 size={16} />{text.getManifest}</button></>}{downloadManifest && <div className="download-list">{downloadManifest.artifacts.map((artifact) => <div key={artifact.id}><span><strong>{artifact.filename}</strong><small>{formatSize(artifact.size)}</small></span><IconButton label={`${text.download}: ${artifact.filename}`} disabled={busy} onClick={() => { void download(artifact); }}><Download size={17} /></IconButton></div>)}</div>}</> : <Search size={32} />}</section></div>
       </>}
     </main>
-    <footer className="app-footer"><span><span className="status-dot" />{text.local}</span><span>Device Update Hub / 0.1.0</span></footer>
+    <footer className="app-footer"><span><span className="status-dot" />{text.local}</span><span>Device Update Hub / {__APP_VERSION__}</span></footer>
     {editor && <Modal title={editingId ? text.editRelease : text.newRelease} onClose={() => { if (!busy) setEditor(null); }}><form onSubmit={(event) => { event.preventDefault(); void run(async () => {
       const release = await request<Release>(token, `${api}/publishing/releases${editingId ? `/${editingId}` : ''}`, { method: editingId ? 'PATCH' : 'POST', headers: editingId ? {} : { 'Idempotency-Key': creationKey.current }, body: JSON.stringify(editor) });
       await refresh(); choose(release); setEditor(null); setNotice(text.draftSaved);

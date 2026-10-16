@@ -1,0 +1,29 @@
+# File: /compose.self-update.yaml | Version: 0.1.0
+services:
+  hub:
+    environment:
+      DUH_UPDATE_CONFIG_FILE: /etc/duh-update/web.json
+    volumes:
+      - type: bind
+        source: ${DUH_UPDATE_ROOT:?Set DUH_UPDATE_ROOT}/inbox
+        target: /var/lib/duh-update/inbox
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${DUH_UPDATE_ROOT:?Set DUH_UPDATE_ROOT}/status
+        target: /var/lib/duh-update/status
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${DUH_UPDATE_CONFIG_DIR:?Set DUH_UPDATE_CONFIG_DIR}/web-update.json
+        target: /etc/duh-update/web.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${DUH_UPDATE_CONFIG_DIR:?Set DUH_UPDATE_CONFIG_DIR}/updater-public.pem
+        target: /etc/duh-update/public.pem
+        read_only: true
+        bind:
+          create_host_path: false

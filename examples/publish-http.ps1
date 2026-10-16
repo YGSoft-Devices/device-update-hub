@@ -1,4 +1,4 @@
-# File: /examples/publish-http.ps1 | Version: 0.1.3
+# File: /examples/publish-http.ps1 | Version: 0.2.0
 #Requires -Version 7.0
 param(
     [Parameter(Mandatory)][string]$PlanFile,
@@ -33,6 +33,7 @@ try {
         return Invoke-RestMethod @parameters
     }
     $planPath = (Resolve-Path -LiteralPath $PlanFile).Path
+    $limits = Invoke-HubJson -Path '/publishing/limits' -Method GET
     $plan = Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
     $draft = [ordered]@{
         product = $plan.product
@@ -44,7 +45,7 @@ try {
     $inventory = @($plan.files | ForEach-Object {
         $path = [IO.Path]::GetFullPath([IO.Path]::Combine([IO.Path]::GetDirectoryName($planPath), $_))
         $file = Get-Item -LiteralPath $path
-        if ($file.PSIsContainer -or $file.Length -lt 1 -or $file.Length -gt 64MB) { throw 'Invalid artifact size' }
+        if ($file.PSIsContainer -or $file.Length -lt 1 -or ($null -ne $limits.upload_max_bytes -and $file.Length -gt $limits.upload_max_bytes)) { throw 'Invalid artifact size' }
         [PSCustomObject]@{ path = $path; filename = $file.Name; size = $file.Length; sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
     })
     if ($inventory.Count -lt 1 -or $inventory.Count -gt 32 -or @($inventory.filename | Sort-Object -Unique).Count -ne $inventory.Count) { throw 'Invalid artifact inventory' }
@@ -59,7 +60,7 @@ try {
         $stage = 'Artifact upload'
         foreach ($file in $inventory) {
             $release = Invoke-RestMethod -Method POST -Uri ($origin.GetLeftPart([UriPartial]::Authority) + "/api/v1/publishing/releases/$($release.id)/artifacts") `
-                -Headers $headers -Form @{ file = Get-Item -LiteralPath $file.path } -MaximumRedirection 0 -TimeoutSec 90
+                -Headers $headers -Form @{ file = Get-Item -LiteralPath $file.path } -MaximumRedirection 0 -TimeoutSec ($limits.upload_timeout_seconds + 30)
         }
     }
     $stage = 'Inventory verification'

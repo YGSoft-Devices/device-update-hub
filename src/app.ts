@@ -1,4 +1,4 @@
-// File: /src/app.ts | Version: 0.1.5
+// File: /src/app.ts | Version: 0.4.1
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { closeSync, createReadStream, createWriteStream, existsSync, fsyncSync, openSync, renameSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -10,8 +10,11 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { z, ZodError } from 'zod';
-import { checkSchema, draftSchema, fileNameSchema, manifestInputSchema, permits, productSchema, selectRelease, type Artifact, type Principal } from './contract.js';
+import { adminSettingsSchema, checkSchema, draftSchema, fileNameSchema, manifestInputSchema, permits, productSchema, selectRelease, type Artifact, type Principal } from './contract.js';
 import { demand, digestFile, HubError, Store, syncDirectory } from './store.js';
+import { HubUpdates, type HubUpdateOptions } from './hub-update.js';
+import { Identity } from './identity.js';
+import { Backups, type BackupOptions } from './backups.js';
 
 export const credentialsSchema = z.array(z.strictObject({
   id: z.string().min(1).max(64),
@@ -25,34 +28,42 @@ export const credentialsSchema = z.array(z.strictObject({
   }
 });
 export type Credentials = z.infer<typeof credentialsSchema>;
-type Options = { directory: string; credentials: Credentials; webRoot?: string; uploadLimit?: number; uploadTimeoutMs?: number };
+type Options = { directory: string; credentials: Credentials; webRoot?: string; uploadLimit?: number; uploadTimeoutMs?: number; applicationVersion?: string; hubUpdate?: HubUpdateOptions; backups?: BackupOptions };
 const idParams = z.object({ id: z.uuid() });
 const api = '/api/v1';
 
 export async function buildApp(options: Options) {
-  const app = Fastify({ logger: false, bodyLimit: 256 * 1024, requestTimeout: 120000, connectionTimeout: 10000, exposeHeadRoutes: false });
+  const app = Fastify({ logger: false, bodyLimit: 256 * 1024, requestTimeout: 0, connectionTimeout: 10000, exposeHeadRoutes: false });
   const store = new Store(options.directory);
+  const identity = new Identity(store);
+  const updates = options.hubUpdate ? new HubUpdates(options.hubUpdate, store) : null;
+  const backups = options.backups ? new Backups(options.backups, store) : null;
+  app.addHook('onRequest', async (request, reply) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method) && ![`${api}/updates/check`, `${api}/admin/hub-update/check`, `${api}/admin/hub-update/install`].includes(request.url)
+      && (updates?.maintenance() || backups?.maintenance())) return reply.code(503).header('Retry-After', '10').send({ error: { code: 'maintenance', message: 'Hub maintenance is active' } });
+  });
   const credentials = credentialsSchema.parse(options.credentials).map(({ token, ...principal }) => ({
     principal, hash: createHash('sha256').update(token).digest(),
   }));
-  const limit = options.uploadLimit ?? 64 * 1024 * 1024;
   await app.register(helmet, { contentSecurityPolicy: { directives: {
     defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], imgSrc: ["'self'", 'data:'],
     connectSrc: ["'self'"], objectSrc: ["'none'"], frameAncestors: ["'none'"], upgradeInsecureRequests: null,
   } } });
   await app.register(rateLimit, { max: 600, timeWindow: '1 minute' });
-  await app.register(multipart, { throwFileSizeLimit: false, limits: { fileSize: limit, files: 1, fields: 0, parts: 1 } });
+  await app.register(multipart, { throwFileSizeLimit: false, limits: { fileSize: Number.MAX_SAFE_INTEGER, files: 1, fields: 0, parts: 1 } });
   app.addHook('onClose', async () => store.close());
   app.addHook('onSend', async (request, reply) => {
     if (request.url.startsWith(api)) reply.header('Cache-Control', 'no-store');
   });
   function authenticate(request: FastifyRequest): Principal {
     const authorization = request.headers.authorization ?? '';
+    if (!authorization) return identity.cookie(request);
     demand(/^Bearer [a-f0-9]{64}$/.test(authorization), 401, 'unauthorized', 'A valid bearer credential is required');
     const hash = createHash('sha256').update(authorization.slice(7)).digest();
     const match = credentials.find((entry) => timingSafeEqual(entry.hash, hash));
-    demand(match, 401, 'unauthorized', 'A valid bearer credential is required');
-    return match.principal;
+    const principal = match?.principal ?? identity.bearer(authorization.slice(7));
+    demand(principal, 401, 'unauthorized', 'A valid bearer credential is required');
+    return principal;
   }
   function writer(request: FastifyRequest): Principal {
     const principal = authenticate(request);
@@ -72,8 +83,39 @@ export async function buildApp(options: Options) {
     const status = known.statusCode && known.statusCode >= 400 && known.statusCode < 500 ? known.statusCode : 500;
     return reply.code(status).send({ error: { code: status === 500 ? 'internal_error' : 'invalid_request', message: status === 500 ? 'The operation could not be completed' : 'Request rejected' } });
   });
-  app.get('/health', async () => ({ status: 'ok' }));
+  identity.register(app, authenticate, administrator);
+  app.get('/health', async () => ({ status: 'ok', version: options.applicationVersion ?? '0.1.0', database_schema: 3, maintenance: Boolean(updates?.maintenance() || backups?.maintenance()) }));
   app.get(`${api}/session`, async (request) => authenticate(request));
+  app.get(`${api}/admin/settings`, async (request) => { administrator(request); return store.settings(); });
+  app.put(`${api}/admin/settings`, async (request) => store.setSettings(adminSettingsSchema.parse(request.body), administrator(request)));
+  app.get(`${api}/publishing/limits`, async (request) => { writer(request); return store.settings(); });
+  app.get(`${api}/admin/backups`, async (request) => {
+    administrator(request); return { available: backups !== null, agent_ready: backups?.ready() ?? false, settings: backups?.settings() ?? null, job: backups?.job() ?? null };
+  });
+  app.put(`${api}/admin/backups`, async (request) => {
+    const principal = administrator(request); demand(backups, 503, 'backups_unavailable', 'Protected host backup configuration is required');
+    return backups.save(request.body, principal);
+  });
+  for (const kind of ['test', 'backup'] as const) app.post(`${api}/admin/backups/${kind}`, async (request, reply) => {
+    const principal = administrator(request); demand(backups, 503, 'backups_unavailable', 'Protected host backup configuration is required');
+    return reply.code(202).send(backups.enqueue(kind, principal));
+  });
+  app.get(`${api}/admin/hub-update`, async (request) => {
+    administrator(request);
+    return { enabled: updates !== null, agent_ready: updates?.agentReady() ?? false, current_version: options.applicationVersion ?? '0.1.0', target: updates?.options.target ?? null, job: updates?.job() ?? null };
+  });
+  app.post(`${api}/admin/hub-update/check`, async (request) => {
+    const principal = administrator(request);
+    demand(updates, 503, 'updater_disabled', 'Host updater is not configured');
+    return { release: updates.check(principal) };
+  });
+  app.post(`${api}/admin/hub-update/install`, async (request, reply) => {
+    const principal = administrator(request);
+    demand(!backups?.maintenance() && backups?.job()?.state !== 'running', 409, 'backup_busy', 'Wait for the active backup operation');
+    demand(updates, 503, 'updater_disabled', 'Host updater is not configured');
+    const input = z.strictObject({ release_id: z.uuid(), confirmation: z.string().max(96) }).parse(request.body);
+    return reply.code(202).send(await updates.enqueue(input.release_id, input.confirmation, principal));
+  });
   app.get(`${api}/admin/products`, async (request) => store.products(authenticate(request)));
   app.post(`${api}/admin/products`, async (request, reply) => {
     const principal = administrator(request);
@@ -94,10 +136,12 @@ export async function buildApp(options: Options) {
     const principal = writer(request);
     const id = releaseId(request);
     demand(store.get(id, principal).status === 'draft', 409, 'immutable_release', 'Only drafts accept uploads');
+    const settings = store.settings();
+    const limit = options.uploadLimit ?? settings.upload_max_bytes ?? Number.MAX_SAFE_INTEGER;
     const temporary = join(store.staging, randomUUID());
     let artifact: Artifact | undefined;
     try {
-      for await (const part of request.parts()) {
+      for await (const part of request.parts({ limits: { fileSize: limit } })) {
         demand(part.type === 'file', 400, 'invalid_upload', 'Upload one file using the file field');
         const parsedName = fileNameSchema.safeParse(part.filename);
         if (part.fieldname !== 'file' || !parsedName.success) {
@@ -114,7 +158,7 @@ export async function buildApp(options: Options) {
           hash.update(chunk);
           callback(null, chunk);
         } });
-        const signal = AbortSignal.timeout(options.uploadTimeoutMs ?? 60000);
+        const signal = AbortSignal.timeout(options.uploadTimeoutMs ?? settings.upload_timeout_seconds * 1000);
         const output = createWriteStream(temporary, { flags: 'wx', mode: 0o600 });
         let cancel = () => {};
         const deadline = new Promise<never>((_resolve, reject) => {

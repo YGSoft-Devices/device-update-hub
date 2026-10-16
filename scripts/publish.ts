@@ -1,10 +1,10 @@
-// File: /scripts/publish.ts | Version: 0.2.0
+// File: /scripts/publish.ts | Version: 0.3.0
 import { createHash } from 'node:crypto';
 import { openAsBlob, readFileSync, statSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { z } from 'zod';
 import { HubClient, readClientToken } from '../src/client.js';
-import { draftSchema, fileNameSchema, type Release } from '../src/contract.js';
+import { adminSettingsSchema, draftSchema, fileNameSchema, type Release } from '../src/contract.js';
 import { digestFile } from '../src/store.js';
 
 async function main() {
@@ -14,16 +14,17 @@ async function main() {
   const { files, ...draft } = draftSchema.extend({ files: z.array(z.string().min(1)).min(1).max(32) })
     .parse(JSON.parse(readFileSync(planPath, 'utf8')));
   const client = new HubClient({ baseUrl: process.env.DUH_BASE_URL, token: readClientToken('publisher', draft.product) });
+  const limits = adminSettingsSchema.parse(await client.request('/api/v1/publishing/limits'));
   const inventory = files.map((file) => {
     const path = resolve(dirname(planPath), file);
     const filename = fileNameSchema.parse(basename(path));
     const size = statSync(path).size;
-    if (size <= 0 || size > 64 * 1024 * 1024) throw new Error(`Invalid artifact size: ${filename}`);
+    if (!Number.isSafeInteger(size) || size <= 0 || (limits.upload_max_bytes !== null && size > limits.upload_max_bytes)) throw new Error(`Invalid artifact size: ${filename}`);
     return { path, filename, ...digestFile(path) };
   });
   if (new Set(inventory.map((file) => file.filename)).size !== inventory.length) throw new Error('Artifact basenames must be unique');
   async function call<Value>(path: string, method: 'POST' | 'PUT' = 'POST', body?: unknown, headers: Record<string, string> = {}): Promise<Value> {
-    return client.request<Value>(`/api/v1${path}`, { method, body, headers });
+    return client.request<Value>(`/api/v1${path}`, { method, body, headers, timeoutMs: body instanceof FormData ? (limits.upload_timeout_seconds + 30) * 1000 : 90000 });
   }
   const key = `publish-${createHash('sha256').update(JSON.stringify([draft.product, draft.channel, draft.version])).digest('hex')}`;
   let release = await call<Release>('/publishing/releases', 'POST', draft, { 'Idempotency-Key': key });

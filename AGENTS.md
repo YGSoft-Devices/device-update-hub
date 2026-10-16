@@ -1,9 +1,9 @@
-<!-- File: /AGENTS.md | Document version: 0.2.2 | Status: MVP AUTHORIZED | Updated: 2026-10-16 -->
+<!-- File: /AGENTS.md | Document version: 0.5.1 | Status: SCOPED HTTPS ACTIVE | Updated: 2026-10-16 -->
 # AGENTS.md — Device Update Hub
 
 > **Location:** `/AGENTS.md` (repository root)  
-> **Document version:** `0.2.2`  
-> **Status:** Local MVP implementation authorized  
+> **Document version:** `0.5.1`  
+> **Status:** Designated Debian deployment and exact HTTPS route active  
 > **Last updated:** 2026-10-16
 
 ## 1. Agent role and authority
@@ -16,7 +16,25 @@ The project is a standalone, Docker-deployed web administration platform and API
 
 Before any later implementation task, read `/README.md` and this entire file. Distinguish approved requirements from illustrative API examples and unresolved design decisions.
 
+**Follow-up authorized on 2026-10-16:** implement Hub self-update as the `device-update-hub` product, explicit admin confirmation, signed packages, atomic directory handoff and a Linux/systemd host agent outside Docker. The web process must never receive Docker/root access. Test privileged operations through isolated fakes here; do not install a resident service or perform a real server replacement without approval of the target deployment. Production exposure and live-device installers remain unauthorized. Upload size is now an admin-controlled persistent setting, unlimited by default, not a fixed 64 MiB cap.
+
+Hub self-update contracts/installation/recovery: `/docs/SELF_UPDATE.md`, `/src/hub-update.ts`, `/src/docker-deployment.ts`. The host pins Ed25519 trust and fixed Compose policy, checks its heartbeat/target/key, re-verifies private bytes, backs up offline and verifies exact-version health. Preserve read-only status/config/key mounts and no web Docker socket. Interrupted jobs fail closed for operator recovery. Database schema 2 is an atomic additive migration from 1; back up before local restart and do not silently migrate to later schemas. Keep large uploads streamed; Node/PowerShell publishers must discover limits, never reintroduce a hardcoded 64 MiB cap.
+
+**Target deployment authorized on 2026-10-16:** the user explicitly approved provisioning their new Debian 12 host `DockerPVE2.lan`, including Docker, the Hub, dedicated credentials, the external systemd updater and signed self-update validation. A dedicated root SSH key was installed manually by the user. Keep application publishing loopback-only and private access through SSH; do not enable public DNS/TLS exposure, weaken SSH authentication, alter other hosts or operate live devices. Keep SSH/application/signing secrets under ignored local storage or protected host configuration, never in source, logs or images. Installation may run as root over the approved key without interactive escalation. These target-specific permissions supersede the earlier local-only restriction; unrelated production gates remain open.
+
+Verified installed layout and recovery/operation commands are in `/docs/DEPLOYMENT.md`. Signed 0.1.1 is frozen and deployed; 0.1.2 was a deliberately mismatched rollback fixture and is withdrawn but permanently reserved. Never rebuild/replace published 0.1.1 or reuse 0.1.2; choose 0.1.3 or a higher appropriate release. Preserve the root-only active Compose image override when managing containers. The workstation's operator tunnel uses port 3212; port 3211 belongs exclusively to isolated browser tests. Real replacement/restore/reboot passed on this target, not arbitrary deployments; external encrypted backups and public security gates remain outstanding.
+
+**Scoped public-access approval on 2026-10-16:** the user created `updatehub.ygsoft.fr`, identified reverse proxy `192.168.1.247`, and explicitly approved public access only with valid HTTPS and HTTP-to-HTTPS redirection. The Hub host now has reserved IP `192.168.1.93`. Keep Docker bound to loopback; the versioned Nginx LAN gateway accepts only that proxy and exact host, redirects non-HTTPS-forwarded traffic, and streams uploads without an independent size cap. Public activation is not complete until the external proxy has a valid certificate and its route is tested without disabling certificate verification. Do not enable public HTTP login/API, alter unrelated proxy hosts, obtain unrelated credentials, or claim broader production hardening. The external proxy's administrative configuration requires its operator or separately authorized access. Earlier public-exposure prohibitions are superseded only for this exact HTTPS route; all other gates remain.
+
+**Activation verified:** the operator enabled the external certificate and Force SSL. Normal certificate verification, HTTP 301 to HTTPS, HTTPS interface/health, authenticated admin reads and ready updater on 0.1.1 passed. Direct LAN access, including spoofed forwarding headers, returns 403; anonymous admin access returns 401. The enabled host Nginx configuration is `/etc/nginx/conf.d/device-update-hub.conf`, sourced from `/deployment/reverse-proxy-gateway.conf`. Preserve this separate host gateway and loopback updater health policy; do not rebuild frozen 0.1.1 for gateway/documentation changes. Public large-upload limits/timeouts on the operator-managed proxy have not been certified. See `/docs/DEPLOYMENT.md` for the route and residual gates.
+
 ## 2. Source of truth and precedence
+
+**Accounts/backup follow-up authorized on 2026-10-16:** approved local users/passwords plus distinct API tokens, Argon2id, cookie sessions/CSRF, admin user lifecycle, Synology SMB 3 backups via Restic, encryption, configurable retention/scheduling and short consistent-copy maintenance. See `/docs/ADMINISTRATION.md`, `/src/identity.ts`, `/src/backups.ts`. Preserve file-token compatibility, last-admin protection, hashed sessions/tokens, revocation and write-only secrets. MFA/email recovery/SSO are excluded. NAS address/share/credentials are not supplied: leave backups unconfigured; never invent a destination or read unrelated secrets. Require minimum SMB 3 on Synology because rclone has no client-side minimum-dialect setting.
+
+Application 0.2.0 introduces schema 3, atomic additive migration from 2 and explicit signed-package/health support for schemas 2/3. Update the trusted host agent and back up the stopped complete schema-2 volume/configuration before installation; rollback restores old data before starting 0.1.1. Frozen releases stay immutable. Key/policy mounts are read-only: no SMB mount or web Docker/root access. Backups serialize with updates, restart the Hub before transfer, and fail closed after interrupted maintenance. Independent NAS restore is unverified until configured. Keep secrets out of source/chat/logs; later migrations require a separate plan.
+
+**0.2.0 deployment verified on the designated host:** signed release `1c186501-f1d5-4aa2-8ad3-9a6b21aa9486`, image `sha256:b06824b4e8640a997c42b4fa2abcd27aeaa924fcb325de257024c8d05e17f176`, job `81bd728b-5373-44c5-a921-1596f26f31eb` succeeded with exact schema-3 health and HTTPS/authenticated acceptance. Freeze 0.2.0 too; future functional changes need a new release. The 0.1.1 web rejects signed schema 3, so this initial migration used an authenticated operator-confirmed atomic handoff to the upgraded agent, without weakening its signature/hash/backup/health checks. Its private journal and stopped schema-2 copies are in the deployment runbook. Restic 0.14.0 and rclone 1.60.1 are installed; the backup key is read-only in web and copied to protected ignored operator storage. Both agents are ready, but NAS settings remain null and named users remain for the operator to create through the existing admin token. Existing releases/settings and frozen artifact hashes were reverified. Later updates through 0.2.0 support schemas 2/3 normally.
 
 1. The user's explicit current task and approved design decisions.
 2. The current repository's `/AGENTS.md` and `/README.md`.
@@ -157,10 +175,10 @@ Those are **potential mapping points, not a signed integration contract**. Befor
 
 Develop the approved local MVP in `/docs/DECISIONS.md`. Runtime contracts live in `/src/contract.ts`; keep tests beside the existing suites under `/tests`. Run `npm test`, `npm run build`, and browser workflow tests before declaring the local MVP functional. Keep secrets and persistent data out of version control and the image. Update document/file versions on every revision; comment-free files are tracked in `/versions.json`. Complete file contents are available in the workspace; do not paste large files into chat unless requested.
 
-The planned origin is `https://updatehub.ygsoft.fr`; DNS and production deployment are not yet available or authorized. Developer clients may prepare for this exact HTTPS origin, but local tests must not contact it. Keep native/Compose exposure on loopback, same-origin relative API URLs, certificate verification and redirect refusal. Future public activation requires separate approval and production security gates.
+The approved public origin is `https://updatehub.ygsoft.fr`; the exact HTTPS route is now authorized but certificate/route verification must precede authenticated public use. Isolated local tests must not contact it; explicit deployment diagnostics may. Keep native/Compose exposure on loopback, same-origin relative API URLs, certificate verification and redirect refusal. General production identity, backup and device-installation gates remain open.
 
 Maintain `/docs/DEVELOPERS.md` and the versioned `/examples` when publication/client contracts change. Node and PowerShell publishers share retry semantics and stable principal-scoped idempotency keys. Discovery must remain independent from manifest retrieval/download; reference downloads validate compatibility and bytes without installing or overwriting conflicting files. Preserve System/Light/Dark modes; only theme preferences, never credentials, may persist in browser storage. Docker's allowlisted build context must include all versioned source required by the inventory checks, but no credentials, data or generated output.
 
 ---
 
-*Agent instructions: 0.2.2 — 2026-10-16. Initial specification retained as historical context.*
+*Agent instructions: 0.5.1 — 2026-10-16. Initial specification retained as historical context.*

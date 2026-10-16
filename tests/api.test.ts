@@ -1,7 +1,7 @@
-// File: /tests/api.test.ts | Version: 0.2.3
+// File: /tests/api.test.ts | Version: 0.4.0
 import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, ftruncateSync, mkdtempSync, openAsBlob, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -9,7 +9,7 @@ import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { get } from 'node:http';
 import { buildApp, type Credentials } from '../src/app.js';
-import { checkSchema, draftSchema, type Release } from '../src/contract.js';
+import { checkSchema, draftSchema, publishedManifestSchema, type Release } from '../src/contract.js';
 import { HubClient, plannedOrigin, readClientToken, validateBaseUrl } from '../src/client.js';
 
 const target = { device_type: 'rpi-camera', os: 'linux', architecture: 'arm64', hardware_revision: 'rev-b', updater_protocol: 1 };
@@ -19,17 +19,17 @@ function multipartBody(filename: string, data: Buffer = Buffer.from('trusted pay
   return { headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
     payload: Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/octet-stream\r\n\r\n`), data, Buffer.from(`\r\n--${boundary}--\r\n`)]) };
 }
-async function fixture(uploadLimit?: number) {
+async function fixture(uploadLimit?: number, uploadTimeoutMs = 500) {
   const directory = mkdtempSync(join(tmpdir(), 'duh-test-'));
   const credentials: Credentials = (['admin', 'publisher', 'reader'] as const).map((role) => ({
     id: `test-${role}`, role, products: role === 'admin' ? [] : ['meeting-agent'], token: randomBytes(32).toString('hex'),
   }));
   const headers = (role: 'admin' | 'publisher' | 'reader' = 'admin') => ({ authorization: `Bearer ${credentials.find((entry) => entry.role === role)!.token}` });
-  let hub = await buildApp({ directory, credentials, uploadLimit, uploadTimeoutMs: 500 });
+  let hub = await buildApp({ directory, credentials, uploadLimit, uploadTimeoutMs });
   await hub.app.inject({ method: 'POST', url: '/api/v1/admin/products', headers: headers(), payload: { id: 'meeting-agent', name: 'Meeting Agent' } });
   return {
     get app() { return hub.app; }, get store() { return hub.store; }, directory, credentials, headers,
-    async restart() { await hub.app.close(); hub = await buildApp({ directory, credentials, uploadLimit, uploadTimeoutMs: 500 }); },
+    async restart() { await hub.app.close(); hub = await buildApp({ directory, credentials, uploadLimit, uploadTimeoutMs }); },
     async cleanup() { await hub.app.close(); rmSync(directory, { recursive: true, force: true }); },
     async create(version = '1.2.0') {
       const result = await hub.app.inject({ method: 'POST', url: '/api/v1/publishing/releases', headers: { ...headers('publisher'), 'idempotency-key': `release-${version.replaceAll('.', '-')}` }, payload: { ...draft, version } });
@@ -106,6 +106,63 @@ test('private multi-file publishing, discovery, immutable manifest, ranges, with
     assert.equal((await hub.app.inject({ url: manifestUrl, headers: hub.headers('reader') })).statusCode, 404);
     assert.equal((await hub.app.inject({ url: downloadUrl, headers: hub.headers('reader') })).statusCode, 404);
     assert.equal((await publish()).statusCode, 409);
+  } finally { await hub.cleanup(); }
+});
+
+test('admin upload settings are persistent, audited, enforced immediately and unlimited by default', async () => {
+  const hub = await fixture();
+  try {
+    const url = '/api/v1/admin/settings';
+    assert.equal((await hub.app.inject({ url, headers: hub.headers() })).json().upload_max_bytes, null);
+    for (const role of ['reader', 'publisher'] as const) {
+      assert.equal((await hub.app.inject({ url, headers: hub.headers(role) })).statusCode, 403);
+      assert.equal((await hub.app.inject({ method: 'PUT', url, headers: hub.headers(role), payload: { upload_max_bytes: 32, upload_timeout_seconds: 3600 } })).statusCode, 403);
+    }
+    assert.equal((await hub.app.inject({ method: 'PUT', url, headers: hub.headers(), payload: { upload_max_bytes: -1, upload_timeout_seconds: 3600 } })).statusCode, 400);
+    assert.equal((await hub.app.inject({ method: 'PUT', url, headers: hub.headers(), payload: { upload_max_bytes: 32, upload_timeout_seconds: 3600 } })).statusCode, 200);
+    const release = await hub.create();
+    assert.equal((await hub.upload(release.id, 'large.bin', Buffer.alloc(33))).statusCode, 413);
+    assert.equal(hub.store.events().some((event) => (event as { action: string }).action === 'settings.updated'), true);
+    await hub.restart();
+    assert.equal((await hub.app.inject({ url, headers: hub.headers() })).json().upload_max_bytes, 32);
+    await hub.app.inject({ method: 'PUT', url, headers: hub.headers(), payload: { upload_max_bytes: null, upload_timeout_seconds: 7200 } });
+    assert.equal((await hub.upload(release.id, 'large.bin', Buffer.alloc(33))).statusCode, 200);
+    assert.deepEqual((await hub.app.inject({ url: '/api/v1/publishing/limits', headers: hub.headers('publisher') })).json(), { upload_max_bytes: null, upload_timeout_seconds: 7200 });
+  } finally { await hub.cleanup(); }
+});
+
+test('a streamed 65 MiB artifact publishes and its immutable manifest accepts the full size', { timeout: 30000 }, async () => {
+  const hub = await fixture(undefined, 25000);
+  try {
+    const release = await hub.create();
+    const path = join(hub.directory, 'large.bin');
+    const descriptor = openSync(path, 'wx');
+    try { ftruncateSync(descriptor, 65 * 1024 * 1024); } finally { closeSync(descriptor); }
+    const address = await hub.app.listen({ host: '127.0.0.1', port: 0 });
+    const body = new FormData(); body.append('file', await openAsBlob(path), 'large.bin');
+    const uploaded = await fetch(`${address}/api/v1/publishing/releases/${release.id}/artifacts`, { method: 'POST', headers: hub.headers('publisher'), body });
+    assert.equal(uploaded.status, 200);
+    const result = await uploaded.json() as Release;
+    assert.equal(result.artifacts[0]!.size, 65 * 1024 * 1024);
+    await hub.app.inject({ method: 'PUT', url: `/api/v1/publishing/releases/${release.id}/manifest`, headers: hub.headers(), payload: { schema_version: '1', artifact_order: result.artifacts.map((artifact) => artifact.id) } });
+    assert.equal((await hub.app.inject({ method: 'POST', url: `/api/v1/publishing/releases/${release.id}/publish`, headers: hub.headers() })).statusCode, 200);
+    const manifest = await hub.app.inject({ url: `/api/v1/releases/${release.id}/manifest`, headers: hub.headers('reader') });
+    assert.equal(publishedManifestSchema.parse(manifest.json()).artifacts[0]!.size, 65 * 1024 * 1024);
+  } finally { await hub.cleanup(); }
+});
+
+test('schema 1 migrates atomically to schema 3 without changing published releases or audit history', async () => {
+  const hub = await fixture();
+  try {
+    const release = await hub.complete((await hub.create()).id);
+    const events = hub.store.events();
+    hub.store.db.exec('DROP TABLE settings; PRAGMA user_version=1;');
+    await hub.restart();
+    assert.equal((hub.store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version, 3);
+    assert.deepEqual(hub.store.get(release.id, { id: 'admin', role: 'admin', products: [] }), release);
+    assert.deepEqual(hub.store.events(), events);
+    assert.equal(hub.store.settings().upload_max_bytes, null);
+    assert.equal(hub.store.verify(release.artifacts[0]!), true);
   } finally { await hub.cleanup(); }
 });
 

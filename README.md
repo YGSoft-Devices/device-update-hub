@@ -1,9 +1,9 @@
-<!-- File: /README.md | Document version: 0.3.1 | Status: LOCAL MVP | Updated: 2026-10-16 -->
+<!-- File: /README.md | Document version: 0.7.1 | Status: SCOPED HTTPS PILOT | Updated: 2026-10-16 -->
 # Device Update Hub
 
 > **Working name:** Device Update Hub (DUH)  
-> **Status:** Local MVP implemented and tested; production not authorized  
-> **Document version:** `0.3.1`  
+> **Status:** Debian pilot deployed; exact HTTPS origin active, general production hardening incomplete  
+> **Document version:** `0.7.1`  
 > **Specification version:** `0.1.0`  
 > **Repository location:** `/README.md`  
 > **Last updated:** 2026-10-16  
@@ -11,11 +11,13 @@
 
 ## Local MVP / MVP local
 
-**FR** — Le serveur, l'administration web, les thèmes System/Light/Dark et les outils développeurs sont implémentés. Le [guide développeur](docs/DEVELOPERS.md) couvre API HTTP, CLI, interface web, vérification et téléchargement explicite. L'historique est dans [CHANGELOG.md](CHANGELOG.md) et chaque fichier source possède une version contrôlée. Le domaine prévu est **https://updatehub.ygsoft.fr**, pas encore créé ni déployé. Aucun appareil ni service de production n'est contacté. Docker Compose est configuré mais son exécution reste à vérifier : le moteur Docker local était arrêté.
+**FR** — Le pilote Debian autorisé est déployé en **0.2.0, schéma 3**, avec gestion des utilisateurs/mots de passe et configuration des sauvegardes Synology dans **System**. La migration signée et les lectures HTTPS authentifiées sont vérifiées ; les anciens artefacts et paramètres sont conservés. Le NAS reste non configuré et sa restauration indépendante reste à valider. L'interface est accessible sur **https://updatehub.ygsoft.fr**, avec certificat valide et redirection HTTP vers HTTPS. Le conteneur reste sur loopback derrière la passerelle filtrée. Le tunnel privé **http://127.0.0.1:3212** reste disponible (3211 est réservé aux tests). Voir [l'administration](docs/ADMINISTRATION.md), [le déploiement](docs/DEPLOYMENT.md) et [le guide développeur](docs/DEVELOPERS.md). L'historique et les limites des tests antérieurs sont conservés ; aucun appareil réel ni autre service n'est concerné. Le durcissement global reste incomplet.
 
 **EN** — The approved [MVP contract](docs/DECISIONS.md) supersedes the original design proposals below. Runtime schemas are in [src/contract.ts](src/contract.ts). Implemented: private product-scoped bearer access, products, editable drafts, multiple ordered artifacts, SHA-256 integrity, atomic publishing, withdrawal, audit history, exact compatible SemVer discovery, immutable manifests, resumable downloads, SQLite persistence, a responsive React administration UI and a retry-safe script publisher. No check automatically downloads or installs anything.
 
 ### Run locally
+
+**Existing catalog:** stop and back up the complete data directory before this atomic schema 2 -> 3 migration (schema 1 is also supported). Schema 3 adds users/sessions/API tokens; old binaries cannot reopen it. Existing file credentials stay compatible and outside the image. Update host-agent/package support before signed schema-3 installation; rollback restores the previous complete volume.
 
 Use Node.js 24-26 (tested here on Node 26.9.0) and npm:
 
@@ -26,7 +28,7 @@ npm run build
 npm start
 ```
 
-Open **http://127.0.0.1:3210**. The init command creates random credentials in `.local/credentials.json` without displaying them or overwriting existing credentials. Sign in with the `local-admin` token from that file, then create the `meeting-agent` product in Products. The generated publisher and reader credentials are scoped to that product. Never share the file or paste credentials into chat. Authentication stays in memory; reloading requires signing in again. Only the System/Light/Dark preference is persisted in browser storage. English UI strings are centralized in `web/copy.ts`; French localization is not yet provided.
+Open **http://127.0.0.1:3210**. The init command creates random credentials in `.local/credentials.json` without displaying them or overwriting existing credentials. Sign in with the `local-admin` token from that file, then create the `meeting-agent` product in Products. The generated publisher and reader credentials are scoped to that product. Never share the file or paste credentials into chat. Bearer sign-in stays in memory and requires sign-in after reload; named password users resume valid HttpOnly sessions. Only the System/Light/Dark preference is persisted in browser storage. English UI strings are centralized in `web/copy.ts`; French localization is not yet provided.
 
 `npm run dev` starts from TypeScript source, but serves the last built UI. After frontend edits run `npm run build` again. The default catalog and artifact directory is `.local/data`. Override it with `DUH_DATA_DIR`; configure `DUH_PORT` and `DUH_CREDENTIALS_FILE` as needed. Keep native binding on loopback.
 
@@ -47,11 +49,19 @@ After initializing credentials, `docker compose up --build -d` builds the applic
 
 For HTTP, Node CLI, PowerShell and web publication, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md), [examples/release-plan.json](examples/release-plan.json) and [examples/publish-http.ps1](examples/publish-http.ps1). The Node commands are `npm run publish:release`, `npm run check:update` and `npm run download:release`, each followed by `--` and its documented arguments. Discovery never downloads; downloading never installs. PowerShell 7 is optional, with its HTTP integration test skipped when unavailable.
 
-Operational configuration/backups are in [docs/OPERATIONS.md](docs/OPERATIONS.md). Production signing, TLS, identity management, installers and Meeting integration are not implemented or approved. The planned origin is supported by developer clients but is not a running service; do not expose this MVP publicly.
+Operational configuration/backups are in [docs/OPERATIONS.md](docs/OPERATIONS.md). Hub-only signed packages and the host updater have passed real validation on the designated Debian host. The exact origin https://updatehub.ygsoft.fr is active with verified TLS; other public routes are not authorized. Generic device signing/installers, production identity hardening, external encrypted backups and Meeting integration remain deferred. Keep isolated tests local and use scoped deployment credentials, never development credentials, for the deployed API.
+
+### System Administration
+
+Application 0.2.0 adds **System > Users** (create/edit/disable, password reset, session revocation and expiring API tokens) and **System > Synology backups** (private SMB destination, write-only secrets, Restic encryption, daily UTC schedule, retention, connection test and explicit backup). Password sessions use revocable HttpOnly cookies; bearer scripts remain compatible. The host agent runs backups without SMB mounts or web Docker access. Backups stay disabled until actual NAS configuration is supplied. See [docs/ADMINISTRATION.md](docs/ADMINISTRATION.md) for first-admin setup, protected host installation, migration and independent recovery. MFA/SSO and a live NAS restore are not certified.
+
+Admins can configure artifact upload size and deadline under **System**. The size cap is off by default; optionally set a maximum in MiB. The old fixed 64 MiB cap is removed from the server, manifests and Node/PowerShell publishers. Settings persist, are audited and affect subsequent uploads without restart. Default upload deadline is 3600 seconds, configurable up to 86400. Reverse-proxy limits and disk capacity remain independent constraints; use the streaming Node CLI for large manual downloads.
+
+System also provides explicit Hub update discovery/confirmation and persistent waiting/recovery states. The signed-package and Linux host-agent implementation is opt-in and disabled without trusted host configuration; the native Windows server cannot replace itself. See [docs/SELF_UPDATE.md](docs/SELF_UPDATE.md) for `npm run package:hub`, the three-artifact Ed25519 format, systemd/Compose installation, backups and recovery. The web container never receives Docker access. The designated Debian pilot has now passed real signed replacement, offline restore and host-reboot checks; [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) records the results and remaining operator actions. Public-production readiness is not claimed.
 
 ### Source Versions and History
 
-[CHANGELOG.md](CHANGELOG.md) is mandatory; maintain Unreleased for meaningful changes. Every source/configuration/document file, including workspace configuration, has a metadata-header version or an explicit entry in [versions.json](versions.json). File versions are distinct from application `0.1.0`, API `v1` and manifest/schema `1`.
+[CHANGELOG.md](CHANGELOG.md) is mandatory; maintain Unreleased for meaningful changes. Every source/configuration/document file, including workspace configuration, has a metadata-header version or an explicit entry in [versions.json](versions.json). File versions are distinct from application `0.2.0`, API `v1`, manifest/package schema `1` and database schema `3`. The deployment runbook distinguishes active images from source revisions.
 
 After revising a file, increment its file version, then run:
 
@@ -240,7 +250,7 @@ Implemented authenticated resource groups:
 Implemented authenticated flow (admin or product-scoped publisher):
 
 1. `POST /api/v1/publishing/releases` — create or reuse a draft by idempotency key.
-2. `POST /api/v1/publishing/releases/{id}/artifacts` — upload one multipart file, at most 64 MiB. Retry an identical filename/hash safely; partial uploads must restart. Resumable transfers apply to downloads, not uploads.
+2. `POST /api/v1/publishing/releases/{id}/artifacts` — upload one multipart file under the admin-configured size/deadline policy, unlimited in size by default. Retry an identical filename/hash safely; partial uploads must restart. Resumable transfers apply to downloads, not uploads.
 3. `PUT /api/v1/publishing/releases/{id}/manifest` — submit/update draft manifest.
 4. `POST /api/v1/publishing/releases/{id}/validate` — receive errors and warnings.
 5. `POST /api/v1/publishing/releases/{id}/publish` — atomically publish after validation.
@@ -361,7 +371,7 @@ The approved local choices are recorded in [docs/DECISIONS.md](docs/DECISIONS.md
 ## 14. Document governance
 
 - The local MVP summary and approved contract describe implemented behavior; the broader product vision remains a roadmap, not a production-readiness claim.
-- Local implementation was explicitly authorized on 2026-10-16. Production, live devices, installers and Meeting integration remain outside that authorization.
+- Local implementation and the designated private Debian deployment with Hub self-update were explicitly authorized on 2026-10-16. Public production, live devices, generic installers and Meeting integration remain outside that authorization.
 - Keep the canonical checkout paths `/README.md` and `/AGENTS.md` for GitHub/Codex compatibility.
 - Each document carries its **own version** in the header. Increment the version whenever that document changes.
 - For deliverables outside a repository, use a versioned bundle folder, e.g. `device-update-hub/v0.1.0/README.md`, retaining the canonical filename.

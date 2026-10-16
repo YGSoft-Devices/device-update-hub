@@ -1,0 +1,13 @@
+{
+  "inbox": "/var/lib/duh-update/inbox",
+  "status": "/var/lib/duh-update/status",
+  "public_key_file": "/etc/duh-update/public.pem",
+  "target": {
+    "device_type": "hub-server",
+    "os": "linux",
+    "architecture": "amd64",
+    "hardware_revision": "docker",
+    "updater_protocol": 1
+  },
+  "channel": "stable"
+}

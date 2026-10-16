@@ -1,4 +1,4 @@
-// File: /src/contract.ts | Version: 0.2.0
+// File: /src/contract.ts | Version: 0.3.1
 import semver from 'semver';
 import { z } from 'zod';
 
@@ -37,7 +37,7 @@ export const fileNameSchema = z.string().min(1).max(128)
 export const artifactSchema = z.strictObject({
   id: z.uuid(),
   filename: fileNameSchema,
-  size: z.number().int().positive().max(64 * 1024 * 1024),
+  size: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
 });
 export const manifestInputSchema = z.strictObject({
@@ -68,6 +68,11 @@ export const checkResultSchema = z.discriminatedUnion('update_available', [
   }).refine((release) => release.manifest_url === `/api/v1/releases/${release.id}/manifest`, 'Invalid manifest URL') }),
 ]);
 export type PublishedManifest = z.infer<typeof publishedManifestSchema>;
+export const adminSettingsSchema = z.strictObject({
+  upload_max_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(),
+  upload_timeout_seconds: z.number().int().min(1).max(86400),
+});
+export type AdminSettings = z.infer<typeof adminSettingsSchema>;
 export type CheckResult = z.infer<typeof checkResultSchema>;
 export type Target = z.infer<typeof targetSchema>;
 export type Draft = z.infer<typeof draftSchema>;

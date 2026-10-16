@@ -1,11 +1,11 @@
-<!-- File: /docs/DEVELOPERS.md | Version: 0.1.0 | Updated: 2026-10-16 -->
+<!-- File: /docs/DEVELOPERS.md | Version: 0.3.0 | Updated: 2026-10-16 -->
 # Developer Integration
 
 ## Availability and Trust
 
-Current working origin: `http://127.0.0.1:3210`. Planned public origin: **https://updatehub.ygsoft.fr**. The domain has not been created or deployed. Preparing clients for that origin is not permission to contact a production service, expose this MVP publicly, or operate live devices. All examples below use the local server.
+Local development origin: `http://127.0.0.1:3210`. Approved deployed origin: **https://updatehub.ygsoft.fr**, now active with verified TLS and HTTP-to-HTTPS redirection; see [DEPLOYMENT.md](DEPLOYMENT.md). All examples below still use the local server. Isolated tests must not contact the public deployment or real devices. For intentional deployed use, select deployment-specific product-scoped credentials; local initialization credentials do not authenticate there.
 
-Clients accept loopback HTTP(S) or the exact planned HTTPS origin. They reject embedded credentials, paths/query strings in the base URL, unexpected origins and HTTP redirects. The server returns relative API URLs, so a future same-origin reverse proxy will not require rewriting manifests. DNS, trusted TLS termination, proxy configuration, signing and production identity hardening remain separate approval gates. Do not disable certificate verification or publish the Compose port publicly.
+Clients accept loopback HTTP(S) or the exact approved HTTPS origin. They reject embedded credentials, paths/query strings in the base URL, unexpected origins and HTTP redirects. Set `DUH_BASE_URL=https://updatehub.ygsoft.fr` directly for deployed use, never its HTTP redirect. Relative API URLs work unchanged through the same-origin proxy. General production signing/identity hardening and device installation remain separate gates. Do not disable certificate verification or open the Compose port beyond loopback.
 
 The server distributes releases; a trusted platform-specific updater decides whether and how to install them. Check, manifest retrieval, download and installation are separate steps. The provided tools never execute, extract, flash or install downloaded files. SHA-256 verifies bytes, not publisher authenticity; production needs a signing strategy.
 
@@ -17,7 +17,7 @@ Use Node.js 24-26 and `npm ci`, then follow [local setup](../README.md). An admi
 - Publisher: create/edit/upload/validate/publish releases for explicitly granted products. No product creation or withdrawal.
 - Reader: check and retrieve published manifests/artifacts for granted products. No mutation access.
 
-All API operations except `/health` require `Authorization: Bearer` authentication. Device IDs are not credentials. Never embed admin/publisher keys in devices, public web code, repositories, manifests or artifacts. Reader keys also remain secret: do not ship a shared fleet-wide key as a production identity solution. Browser administration keeps credentials only in memory and requires sign-in after reload; only appearance preferences use localStorage.
+Protected API operations accept bearer credentials or browser cookie sessions; `/health` and the login/session-bootstrap routes are public. Scripts keep using `Authorization: Bearer` and the unchanged publication/discovery contract. Named users, expiring/revocable API tokens, password login and cookie/CSRF rules are documented in [ADMINISTRATION.md](ADMINISTRATION.md). Cookie sessions can resume on reload; credentials never enter browser storage. Device IDs are not credentials. Never embed admin/publisher keys in devices, web bundles, repositories, manifests or artifacts; shared reader keys are not a production fleet identity solution.
 
 Node tools resolve credentials in this order:
 
@@ -49,7 +49,7 @@ npm run publish:release -- examples/release-plan.json
 
 For the original local setup, omit `DUH_TOKEN_FILE` to select the product-scoped publisher from `.local/credentials.json`. A publisher-only credential-array file can instead be selected with `DUH_CREDENTIALS_FILE`. Remove any previously configured `DUH_TOKEN` before switching to token-file mode.
 
-The CLI creates/reuses a draft, uploads files, verifies the complete remote inventory against local bytes, writes the manifest, validates and explicitly publishes. Files must have portable unique basenames, be nonempty and at most 64 MiB each; a release contains 1-32 required artifacts. Uploads restart from the beginning after interruption. The server bounds an individual upload to 60 seconds; clients have a 90-second request timeout. No aggregate storage quota exists yet.
+The CLI creates/reuses a draft, uploads files, verifies the complete remote inventory against local bytes, writes the manifest, validates and explicitly publishes. Files must have portable unique basenames and be nonempty; a release contains 1-32 required artifacts. No fixed 64 MiB cap remains. Admins set `upload_max_bytes` (null/unlimited by default) and `upload_timeout_seconds` (default 3600, range 1-86400) in System or `GET/PUT /api/v1/admin/settings`. Publishers discover effective policy through authenticated `GET /api/v1/publishing/limits`; both supplied publishers do so and allow a 30-second client margin beyond the configured upload deadline. File-size changes apply to subsequent requests. Node uses file-backed blobs, not whole-file buffers. Uploads restart from the beginning after interruption. Metadata requests retain a 90-second client timeout, reference downloads a one-hour timeout; proxy limits, disk capacity and aggregate quotas are separate operational concerns.
 
 Success exits 0 and prints release metadata, not credentials. Failure exits nonzero. Re-run the identical plan after a network interruption. The key is `publish-` followed by lowercase SHA-256 of compact UTF-8 JSON `[product,channel,version]`; both supplied publishers use it. Keys are scoped to the credential principal, not globally shared. Identical uploads and already-published retries are safe. A changed draft payload under the same key conflicts; changed bytes under a stored filename, extra remote files or changed published manifest order are refused. Do not delete files automatically to make a retry succeed. Correct a published release with a new version; request admin withdrawal when needed.
 
@@ -139,6 +139,8 @@ The example intentionally stops at discovery. After a distinct user/policy decis
 The same lifecycle and permission checks apply to HTTP, CLI and web UI. Reloading signs out. The System/Light/Dark preference may persist independently; it never stores credentials. UI strings are English and centralized for later localization.
 
 ## Errors and Validation
+
+Hub self-update is a separate explicitly approved host installation path, not a generic device installer. See [SELF_UPDATE.md](SELF_UPDATE.md) for the signed three-file release, packaging CLI, host service, admin confirmation and recovery. Generic check/download clients still never install anything. The browser's individual manual download hashes an in-memory buffer; use the streaming Node reference downloader for large manual artifacts. The self-update UI stages its package on the server, not through browser download buffers.
 
 API errors generally use `{ "error": { "code": "...", "message": "..." } }`; rate-limit/framework errors may have their own envelope. Handle non-2xx responses before treating a payload as a release or manifest.
 

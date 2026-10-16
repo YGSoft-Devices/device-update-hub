@@ -1,0 +1,29 @@
+# File: /deployment/device-update-hub-updater.service | Version: 0.1.1
+[Unit]
+Description=Device Update Hub signed host updater
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=simple
+User=root
+UMask=0077
+WorkingDirectory=/opt/device-update-hub-agent
+RuntimeDirectory=device-update-hub-updater
+RuntimeDirectoryMode=0700
+StateDirectory=device-update-hub-updater
+StateDirectoryMode=0700
+ExecStart=/usr/bin/flock -n /run/device-update-hub-updater/agent.lock /usr/local/bin/node /opt/device-update-hub-agent/build/scripts/host-updater.js /etc/device-update-hub/updater.json
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=7200
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/device-update-hub-exchange/inbox /var/lib/device-update-hub-exchange/status
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_FOWNER
+
+[Install]
+WantedBy=multi-user.target
