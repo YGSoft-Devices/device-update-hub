@@ -9,12 +9,16 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "init": "tsx scripts/init.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "npm run versions:check && tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && tsc -p tsconfig.server.json && vite build",
+    "build": "npm run versions:check && npm run typecheck && tsc -p tsconfig.server.json && vite build",
     "start": "node build/src/server.js",
     "test:e2e": "playwright test",
-    "publish:release": "tsx scripts/publish.ts"
+    "publish:release": "tsx scripts/publish.ts",
+    "check:update": "tsx scripts/check.ts",
+    "download:release": "tsx scripts/download.ts",
+    "versions:check": "node scripts/versions.mjs check",
+    "versions:record": "node scripts/versions.mjs record"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.0",

@@ -1,0 +1,16 @@
+{
+  "product": "meeting-agent",
+  "version": "1.0.0",
+  "channel": "stable",
+  "release_notes": "First local release",
+  "targets": [
+    {
+      "device_type": "rpi-camera",
+      "os": "linux",
+      "architecture": "arm64",
+      "hardware_revision": "rev-b",
+      "updater_protocol": 1
+    }
+  ],
+  "files": ["../.local/artifacts/application.bin", "../.local/artifacts/settings.json"]
+}

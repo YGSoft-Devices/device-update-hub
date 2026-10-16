@@ -1,8 +1,9 @@
-// File: /web/App.tsx | Version: 0.1.2
+// File: /web/App.tsx | Version: 0.2.0
 import { useDeferredValue, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpRight, Box, CheckCircle2, ChevronRight, CircleAlert, Download, FileCode2, FilePlus2, Folder, KeyRound, Layers3, LogOut, PackageCheck, Plus, Radio, RefreshCw, Search, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import type { Artifact, Draft, Principal, Release, Target } from '../src/contract.js';
 import { copy as text } from './copy.js';
+import { ThemeControl } from './theme.js';
 
 type Product = { id: string; name: string };
 type Event = { sequence: number; at: string; actor: string; action: string; resource: string };
@@ -144,7 +145,7 @@ export function App() {
   const banner = <>{error && <div className="banner error" role="alert"><CircleAlert size={18} /><span>{error}</span></div>}{notice && <div className="banner success" role="status"><CheckCircle2 size={18} /><span>{notice}</span></div>}</>;
 
   if (!principal) return <main className="login-shell">
-    <div className="login-brand"><span className="brand-mark"><Layers3 /></span><span>{text.brand}</span></div>
+    <div className="login-header"><div className="login-brand"><span className="brand-mark"><Layers3 /></span><span>{text.brand}</span></div><ThemeControl /></div>
     <form className="login-form" onSubmit={(event) => { void signIn(event); }}>
       <span className="eyebrow"><KeyRound size={16} /> {text.console}</span><h1>{text.signIn}</h1>
       <label>{text.credential}<input type="password" autoComplete="off" required value={inputToken} onChange={(event) => setInputToken(event.target.value)} /></label>
@@ -154,7 +155,7 @@ export function App() {
 
   return <div className="app-shell">
     <header className="app-header"><a className="brand" href="/" onClick={(event) => event.preventDefault()}><span className="brand-mark"><Layers3 /></span><span>{text.brand}</span></a>
-      <div className="session"><span className="status-dot" /><span className="session-id">{principal.id}</span><span className="role">{principal.role}</span><IconButton label={text.signOut} onClick={signOut} disabled={busy}><LogOut size={18} /></IconButton></div>
+      <div className="session"><span className="status-dot" /><span className="session-id">{principal.id}</span><span className="role">{principal.role}</span><ThemeControl /><IconButton label={text.signOut} onClick={signOut} disabled={busy}><LogOut size={18} /></IconButton></div>
     </header>
     <div className="workspace-bar"><span><Radio size={14} />{text.local}</span><span>{text.console}<ChevronRight size={14} />{text[view]}</span></div>
     <nav className="main-nav" aria-label={text.console}>

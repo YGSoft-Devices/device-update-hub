@@ -1,4 +1,4 @@
-// File: /tests/browser/workflow.spec.ts | Version: 0.1.2
+// File: /tests/browser/workflow.spec.ts | Version: 0.2.1
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { test, expect } from '@playwright/test';
@@ -47,6 +47,9 @@ test('admin publishes two files; reader checks, verifies and downloads; admin wi
   await expect(page.getByRole('status')).toHaveText('Release published');
   await expect(page.getByRole('button', { name: 'Edit draft', exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('release-console.png'), fullPage: true });
+  await page.getByRole('combobox', { name: 'Theme', exact: true }).selectOption('dark');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.screenshot({ path: info.outputPath('release-console-dark.png'), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole('button', { name: 'Inspect manifest', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Manifest', exact: true })).toContainText('application.bin');
@@ -79,7 +82,9 @@ test('admin publishes two files; reader checks, verifies and downloads; admin wi
   await page.getByRole('button', { name: 'Check for updates', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'No eligible update', exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('reader-check.png'), fullPage: true });
-  expect(await page.evaluate(() => localStorage.length + sessionStorage.length)).toBe(0);
+  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual(['duh-theme']);
+  expect(await page.evaluate(() => localStorage.getItem('duh-theme'))).toBe('dark');
+  expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await page.getByLabel('Access token', { exact: true }).fill(credentials.find((entry) => entry.role === 'admin')!.token);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -88,4 +93,26 @@ test('admin publishes two files; reader checks, verifies and downloads; admin wi
   await page.getByRole('dialog', { name: 'Withdraw release', exact: true }).getByRole('button', { name: 'Withdraw release', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Release withdrawn');
   expect(browserErrors).toEqual([]);
+});
+
+test('theme follows the OS, supports overrides and survives reload without storing credentials', async ({ page }, info) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toHaveValue('system');
+  await page.getByRole('combobox', { name: 'Theme', exact: true }).selectOption('light');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.getByRole('combobox', { name: 'Theme', exact: true }).selectOption('dark');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('textbox', { name: 'Access token', exact: true })).toHaveValue('');
+  await page.screenshot({ path: info.outputPath('theme-dark.png'), fullPage: true, animations: 'disabled' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('combobox', { name: 'Theme', exact: true }).selectOption('system');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });

@@ -1,4 +1,4 @@
-<!-- File: /docs/DECISIONS.md | Version: 0.1.0 | Updated: 2026-10-16 -->
+<!-- File: /docs/DECISIONS.md | Version: 0.1.1 | Updated: 2026-10-16 -->
 # Approved MVP Contract
 
 Approved by the user on 2026-10-16 after explicit review of stack, security, persistence and interoperability choices. Implementation is authorized for local development and local deployment only. No live devices or production services.
@@ -36,3 +36,11 @@ Stable excludes prereleases; other channels allow them without crossing tracks. 
 ## Durability and Recovery
 
 Bytes are staged, synced and atomically renamed before metadata references them. Files are never modified after storage. SQLite transactions couple lifecycle changes with audit records. Interrupted writes may leave unreferenced files, but never discoverable partial releases. Backup/restore requires stopping the single writer and copying the entire data directory, including database sidecars, plus a separately secured credentials backup. Physical disk corruption is outside transaction guarantees: validate before publication and on download; keep off-host backups. Signing, migrations, storage quotas beyond per-upload limits and automated garbage collection remain production gates.
+
+## Developer Experience and Planned Origin
+
+The user's 2026-10-16 follow-up requests a separate backfilled changelog, per-file version enforcement, dark appearance, developer integration documentation/scripts and preparation for `https://updatehub.ygsoft.fr`. The domain is not created, and this does not expand local authorization to production deployment. Relative API URLs already support a future same-origin HTTPS proxy. Developer clients allow loopback or this exact HTTPS origin and refuse redirects/unexpected origins; no domain availability test or live-device operation is part of local verification.
+
+The reference Node client and CLI separate checks, manifest retrieval and verified downloads. Downloads validate expected compatibility, SHA-256 and size, use private temporary files and refuse to overwrite different existing files. They do not install. Node and PowerShell HTTP publishers implement the same principal-scoped retry semantics. Scoped tokens may be supplied by a protected raw token file or process environment rather than distributing the complete local credential array. Production provisioning, signing and identity remain unresolved gates, not silently approved decisions.
+
+System/Light/Dark is a presentation preference; only that preference may persist in localStorage. Authentication remains memory-only. Source file versions and SHA-256 snapshots are checked by tests/builds; application, protocol and database versions do not change merely because a document or tool changes.

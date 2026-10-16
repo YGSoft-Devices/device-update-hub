@@ -1,4 +1,4 @@
-<!-- File: /docs/OPERATIONS.md | Version: 0.1.0 | Updated: 2026-10-16 -->
+<!-- File: /docs/OPERATIONS.md | Version: 0.2.0 | Updated: 2026-10-16 -->
 # Local Operations
 
 ## Configuration
@@ -32,7 +32,9 @@ Create a local plan next to your own artifact files. The plan is strict JSON, fo
 }
 ```
 
-Then run `npm run publish:release -- path/to/plan.json`. Relative file paths resolve from the plan directory. Array order is the required artifact order. The product must already exist. The script selects a publisher credential authorized for the product, not an admin key, and only connects to loopback. `DUH_BASE_URL` can select another local port. Set `DUH_CREDENTIALS_FILE` to a publisher-only secret file for CI isolation; do not distribute an admin key with publisher jobs.
+Then run `npm run publish:release -- path/to/plan.json`. Relative file paths resolve from the plan directory. Array order is the required artifact order. The product must already exist. The script selects a publisher credential authorized for the product, not an admin key. `DUH_BASE_URL` accepts loopback origins or the planned `https://updatehub.ygsoft.fr` origin only; the latter is not yet created/deployed and must not be used for local tests. Redirects are refused. Native/Compose binding remains local.
+
+Prefer `DUH_TOKEN_FILE` containing a single scoped token for publisher CI isolation, or `DUH_TOKEN` supplied by a trusted process environment; do not set both. Alternatively, `DUH_CREDENTIALS_FILE` can select a publisher-only credential-array file. Do not distribute an admin key with publisher jobs. See [DEVELOPERS.md](DEVELOPERS.md) for runnable Node/PowerShell HTTP examples, API contracts, web workflows and separate reader check/download commands. Discovery does not download; the reference downloader never installs and does not overwrite conflicting files.
 
 The create request uses a stable product/channel/version idempotency key. Identical upload retries return the existing attachment. The script validates inventory/hashes and manifest ordering before publication. Repeating an identical plan after success is safe. Changed content under an existing filename or published version is refused; use a new version. Extra draft files are not silently deleted. Uploads are not resumable: retry the complete file. Files must be non-empty, have portable basenames, fit within 64 MiB each, and total at most 32 per release. Each file transfer is bounded to 60 seconds. There is no aggregate disk quota yet; operators must monitor disk space.
 
@@ -63,3 +65,5 @@ The local validation machine had Docker Desktop stopped and only about 0.33 GiB 
 ## Deferred Gates
 
 HTTPS termination, trusted signing and identity hardening are mandatory before any production proposal. Multi-instance operation, signing keys, installation commands, direct device access, Meeting integration, archival, deletion, garbage collection, arbitrary version adapters, user administration and device telemetry are absent. Withdrawals retain metadata and stored bytes, but block new checks, manifests and downloads. Already-open downloads may complete. Never delete blobs manually from a live catalog.
+
+The planned domain is `https://updatehub.ygsoft.fr`. Creating DNS, obtaining a trusted certificate, deploying a reverse proxy and enabling public access require a separate approved deployment/security plan. No DNS, external endpoint or certificate was modified for this preparation.

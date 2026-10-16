@@ -1,5 +1,6 @@
-// File: /web/copy.ts | Version: 0.1.0
+// File: /web/copy.ts | Version: 0.1.1
 export const en = {
+  theme: 'Theme', systemTheme: 'System', lightTheme: 'Light', darkTheme: 'Dark',
   brand: 'Device Update Hub', console: 'Release console', local: 'Local workspace',
   signIn: 'Sign in', credential: 'Access token', signOut: 'Sign out', session: 'Session',
   releases: 'Releases', products: 'Products', activity: 'Activity', check: 'Update check',

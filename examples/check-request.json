@@ -1,0 +1,12 @@
+{
+  "product": "meeting-agent",
+  "current_version": "0.0.0",
+  "channel": "stable",
+  "target": {
+    "device_type": "rpi-camera",
+    "os": "linux",
+    "architecture": "arm64",
+    "hardware_revision": "rev-b",
+    "updater_protocol": 1
+  }
+}

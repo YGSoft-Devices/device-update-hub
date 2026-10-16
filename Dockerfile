@@ -1,12 +1,9 @@
-# File: /Dockerfile | Version: 0.1.0
+# File: /Dockerfile | Version: 0.1.1
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY tsconfig.json tsconfig.server.json vite.config.ts ./
-COPY src ./src
-COPY scripts ./scripts
-COPY web ./web
+COPY . .
 RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime

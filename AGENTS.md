@@ -1,8 +1,8 @@
-<!-- File: /AGENTS.md | Document version: 0.2.0 | Status: MVP AUTHORIZED | Updated: 2026-10-16 -->
+<!-- File: /AGENTS.md | Document version: 0.2.2 | Status: MVP AUTHORIZED | Updated: 2026-10-16 -->
 # AGENTS.md — Device Update Hub
 
 > **Location:** `/AGENTS.md` (repository root)  
-> **Document version:** `0.2.0`  
+> **Document version:** `0.2.2`  
 > **Status:** Local MVP implementation authorized  
 > **Last updated:** 2026-10-16
 
@@ -111,6 +111,8 @@ For every file produced or revised:
 
 Keep specifications, schema versions, application versions and individual file/document versions conceptually separate. A file's updated version does not imply that the application has been released.
 
+`/CHANGELOG.md` is mandatory: maintain its Unreleased section for every meaningful change and preserve the existing history. Every source/configuration/document file must have a header version or an explicit version in `/versions.json`, including workspace and repository configuration. Generated builds, dependencies, credentials and persistent data are not source deliverables and must remain excluded. After each source revision, increment the file version and run `npm run versions:record`, then `npm run versions:check`. Recording refuses changed contents at an unchanged version; tests/builds reject an inventory that is out of date. Never bypass these checks or record secrets.
+
 ## 9. Language and documentation
 
 - **Conversation with the user:** French.
@@ -155,6 +157,10 @@ Those are **potential mapping points, not a signed integration contract**. Befor
 
 Develop the approved local MVP in `/docs/DECISIONS.md`. Runtime contracts live in `/src/contract.ts`; keep tests beside the existing suites under `/tests`. Run `npm test`, `npm run build`, and browser workflow tests before declaring the local MVP functional. Keep secrets and persistent data out of version control and the image. Update document/file versions on every revision; comment-free files are tracked in `/versions.json`. Complete file contents are available in the workspace; do not paste large files into chat unless requested.
 
+The planned origin is `https://updatehub.ygsoft.fr`; DNS and production deployment are not yet available or authorized. Developer clients may prepare for this exact HTTPS origin, but local tests must not contact it. Keep native/Compose exposure on loopback, same-origin relative API URLs, certificate verification and redirect refusal. Future public activation requires separate approval and production security gates.
+
+Maintain `/docs/DEVELOPERS.md` and the versioned `/examples` when publication/client contracts change. Node and PowerShell publishers share retry semantics and stable principal-scoped idempotency keys. Discovery must remain independent from manifest retrieval/download; reference downloads validate compatibility and bytes without installing or overwriting conflicting files. Preserve System/Light/Dark modes; only theme preferences, never credentials, may persist in browser storage. Docker's allowlisted build context must include all versioned source required by the inventory checks, but no credentials, data or generated output.
+
 ---
 
-*Agent instructions: 0.2.0 — 2026-10-16. Initial specification retained as historical context.*
+*Agent instructions: 0.2.2 — 2026-10-16. Initial specification retained as historical context.*

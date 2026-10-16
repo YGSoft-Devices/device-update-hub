@@ -1,9 +1,232 @@
 {
-  "manifest_version": "0.1.4",
+  "manifest_version": "0.1.12",
   "files": {
-    "package.json": "0.1.4",
+    ".dockerignore": "0.1.1",
+    ".gitattributes": "0.1.2",
+    ".github/workflows/ci.yml": "0.1.0",
+    ".gitignore": "0.1.1",
+    "AGENTS.md": "0.2.2",
+    "CHANGELOG.md": "0.1.6",
+    "compose.yaml": "0.1.0",
+    "device-update-hub.code-workspace": "0.1.0",
+    "Dockerfile": "0.1.1",
+    "docs/DECISIONS.md": "0.1.1",
+    "docs/DELIVERY.md": "0.2.3",
+    "docs/DEVELOPERS.md": "0.1.0",
+    "docs/OPERATIONS.md": "0.2.0",
+    "examples/check-request.json": "0.1.0",
+    "examples/publish-http.ps1": "0.1.3",
+    "examples/release-plan.json": "0.1.0",
     "package-lock.json": "0.1.3",
+    "package.json": "0.2.0",
+    "playwright.config.ts": "0.1.0",
+    "README.md": "0.3.1",
+    "scripts/check.ts": "0.1.0",
+    "scripts/download.ts": "0.1.0",
+    "scripts/e2e-server.ts": "0.1.0",
+    "scripts/init.ts": "0.1.0",
+    "scripts/publish.ts": "0.2.0",
+    "scripts/versions.mjs": "0.1.0",
+    "src/app.ts": "0.1.5",
+    "src/client.ts": "0.1.1",
+    "src/contract.ts": "0.2.0",
+    "src/server.ts": "0.1.0",
+    "src/store.ts": "0.1.0",
+    "tests/api.test.ts": "0.2.3",
+    "tests/browser/workflow.spec.ts": "0.2.1",
+    "tests/contract.test.ts": "0.1.1",
+    "tests/versions.test.ts": "0.1.1",
     "tsconfig.json": "0.1.0",
-    "tsconfig.server.json": "0.1.0"
+    "tsconfig.server.json": "0.1.0",
+    "vite.config.ts": "0.1.0",
+    "web/App.tsx": "0.2.0",
+    "web/copy.ts": "0.1.1",
+    "web/index.html": "0.1.2",
+    "web/main.tsx": "0.1.1",
+    "web/public/icon.svg": "0.1.0",
+    "web/styles.css": "0.2.0",
+    "web/theme.tsx": "0.1.1"
+  },
+  "snapshots": {
+    ".dockerignore": {
+      "version": "0.1.1",
+      "sha256": "29e870827eddece2d484743abe1f7b87953ef6c0ae34454f4b875df4572c1e20"
+    },
+    ".gitattributes": {
+      "version": "0.1.2",
+      "sha256": "5dacfdd0ad3347bbdfb632e63aa68d4345de8d18f6e9129a6fbe96c492122a1d"
+    },
+    ".github/workflows/ci.yml": {
+      "version": "0.1.0",
+      "sha256": "55e4c23c7dd2af40a9e1a4f2d453d60a31cd364591cc0f4ca88b4fc4b1833174"
+    },
+    ".gitignore": {
+      "version": "0.1.1",
+      "sha256": "eb03849a69a1a103ce428f90337610d80f4e5095863576d5c59870bed8cc1dec"
+    },
+    "AGENTS.md": {
+      "version": "0.2.2",
+      "sha256": "56c276b42bf43b0588910edab0ca00b665e1286887c0d390cabd6f790005f8d4"
+    },
+    "CHANGELOG.md": {
+      "version": "0.1.6",
+      "sha256": "5431d7bed48ef49b745ba904070d5f4661155dc4dba7bddeac5780c81e2728fc"
+    },
+    "compose.yaml": {
+      "version": "0.1.0",
+      "sha256": "39f406b276c4b2709bb85e6ac65a6c9d97f64e3fdf70761f3b55e805b899ed52"
+    },
+    "device-update-hub.code-workspace": {
+      "version": "0.1.0",
+      "sha256": "69e7b37e2ebdaf8fc313bf6cb74882fed65895e5f853736e65759bafb333bc6b"
+    },
+    "Dockerfile": {
+      "version": "0.1.1",
+      "sha256": "467c78dcdf9734cc98921e8d781327aa6a60e9432badff4cf4e1993e9e9e35f8"
+    },
+    "docs/DECISIONS.md": {
+      "version": "0.1.1",
+      "sha256": "82a216e422a8d3c9ef4a0062d2e30f0da042abc127b87ff47676b84e516b13b5"
+    },
+    "docs/DELIVERY.md": {
+      "version": "0.2.3",
+      "sha256": "e2b60a9598c94c67f14047681350a4354e88bc06230eb9f0b09531c064541aa4"
+    },
+    "docs/DEVELOPERS.md": {
+      "version": "0.1.0",
+      "sha256": "0902a7479c64e71d95159096464df7e9e005961253c8714cc9c3c9898f8a8b29"
+    },
+    "docs/OPERATIONS.md": {
+      "version": "0.2.0",
+      "sha256": "7b5fd84fccd1e886d4b95f9914838791479a15d277b78b7f8ddfd0de0c6f7715"
+    },
+    "examples/check-request.json": {
+      "version": "0.1.0",
+      "sha256": "ba2d0838af5dee68f9b2cc749c07c88e2b8f7d33fd1a1f261817f1a42d865d21"
+    },
+    "examples/publish-http.ps1": {
+      "version": "0.1.3",
+      "sha256": "a773a74b25240564cfb7e71ee91f954ea4124455ba0ef2066349ed22fa9067ac"
+    },
+    "examples/release-plan.json": {
+      "version": "0.1.0",
+      "sha256": "e886ea9297a13cf0582a7d82aea8d0631ef8113c00333d912df4cb7543650cf3"
+    },
+    "package-lock.json": {
+      "version": "0.1.3",
+      "sha256": "c1fc7e5de19db7060e05c4c32c4f724f9053bd8446228f4ee2e2442b7b09bbe8"
+    },
+    "package.json": {
+      "version": "0.2.0",
+      "sha256": "480927973240f978846295235f96365f7fa0cdc6cfb183293f40f149e093823a"
+    },
+    "playwright.config.ts": {
+      "version": "0.1.0",
+      "sha256": "c7d5661d28120d91e6a2f86a01d750ed6fb9cbc08db271dee887f3341afab72b"
+    },
+    "README.md": {
+      "version": "0.3.1",
+      "sha256": "b22d54ba21b180f842564e51504f871d3867ad1ab6578151c6343ef771f2616d"
+    },
+    "scripts/check.ts": {
+      "version": "0.1.0",
+      "sha256": "e20febbfd9a16fadd1a74ed200c83599102b32cfc087e8c10bd339768b0389c5"
+    },
+    "scripts/download.ts": {
+      "version": "0.1.0",
+      "sha256": "e590d3208e7d41d9d1e5708788e01625feaa5887dd13faaba718e451abb32866"
+    },
+    "scripts/e2e-server.ts": {
+      "version": "0.1.0",
+      "sha256": "5051ea59681d4e11298e3be65bb0cfc9f04c872cfd1f0a7f7cc55673690a6027"
+    },
+    "scripts/init.ts": {
+      "version": "0.1.0",
+      "sha256": "d86a23a0c4afc8dfa7cb09240b92c0725206faba558769eb5b45eb89df6ef84b"
+    },
+    "scripts/publish.ts": {
+      "version": "0.2.0",
+      "sha256": "3da8c6bc14dec1c6c5098672e69df35bedbaca656f2737d383c4a076137f85ef"
+    },
+    "scripts/versions.mjs": {
+      "version": "0.1.0",
+      "sha256": "013cdd6599c1d14d04f5759710b5202f3c40f34d1c466d9cfdebd4ad10cc9ce9"
+    },
+    "src/app.ts": {
+      "version": "0.1.5",
+      "sha256": "dd01e52e1e651d7aaa79f403e30750612d3e9c542f041a1b306a499d9bc63b7e"
+    },
+    "src/client.ts": {
+      "version": "0.1.1",
+      "sha256": "4acc6d0fdb21223e7f48e7710a00a78cf8b7990b7b2cfa8ef5595986be9875f4"
+    },
+    "src/contract.ts": {
+      "version": "0.2.0",
+      "sha256": "c816e686e3009d4ba250b30947612281f403505a6edf21df4a84fb38ea430186"
+    },
+    "src/server.ts": {
+      "version": "0.1.0",
+      "sha256": "9d91e9989d0d5c8a25f92208e5452d61f16c79f1b7a5f73351ca16ed6b4d9dcd"
+    },
+    "src/store.ts": {
+      "version": "0.1.0",
+      "sha256": "2777d41e5abcdfed7861233a3dfc7538b4e78e484be9a848b953275850d79510"
+    },
+    "tests/api.test.ts": {
+      "version": "0.2.3",
+      "sha256": "b72a56fe95c2f6d3a8b47382f202788329ffa0a7a6dd8f9dc12e04684eba2359"
+    },
+    "tests/browser/workflow.spec.ts": {
+      "version": "0.2.1",
+      "sha256": "f2db7fc3d3cfec3a49bfe862a052059163c5e1b03fe6b56ebfa73cfb2d1c8e1a"
+    },
+    "tests/contract.test.ts": {
+      "version": "0.1.1",
+      "sha256": "6479cc63853d0a41e277d78e851c4fae17a81fec9ea68e959414288a9a9e5a0c"
+    },
+    "tests/versions.test.ts": {
+      "version": "0.1.1",
+      "sha256": "193cd885f4ff12ae6192ea1c367b96dba268b9f2cd915b7c8c6845627fa42017"
+    },
+    "tsconfig.json": {
+      "version": "0.1.0",
+      "sha256": "77c94d6c33138bb88489715b266ed12af0d4589a19a2f8980b7a5ac639fec576"
+    },
+    "tsconfig.server.json": {
+      "version": "0.1.0",
+      "sha256": "44fc646bf3548ef6afe91ebb4b4d159b13f37b8d74e94af032fd4689fb96a561"
+    },
+    "vite.config.ts": {
+      "version": "0.1.0",
+      "sha256": "ad12080298f0c693a7216795fefcedc237eb9e127d3f753a36e38255ec571d76"
+    },
+    "web/App.tsx": {
+      "version": "0.2.0",
+      "sha256": "c477dbca482551215582c4a76d8bc6af65551465959f9e452482a43b816993b0"
+    },
+    "web/copy.ts": {
+      "version": "0.1.1",
+      "sha256": "4ada021a286e113707cb95a15cbc221013d8754dafbe2591603a4a303086f16c"
+    },
+    "web/index.html": {
+      "version": "0.1.2",
+      "sha256": "88ec61699b7c72f7797051449936dc0604d1197f1aa6478dc0e8420d92ec594c"
+    },
+    "web/main.tsx": {
+      "version": "0.1.1",
+      "sha256": "5033efca6ed8d48956cc2686faeb42a504151f4ba3e5b806b4fef0406a165274"
+    },
+    "web/public/icon.svg": {
+      "version": "0.1.0",
+      "sha256": "0145ee0f9cd06445734973f7ff4c65c29be9d42d9087184ba1ad49dc7105cef5"
+    },
+    "web/styles.css": {
+      "version": "0.2.0",
+      "sha256": "4af3d03819232135721f58df19096de1c2038f4f7e33d0c770606820c7808c44"
+    },
+    "web/theme.tsx": {
+      "version": "0.1.1",
+      "sha256": "db26529b03b6154ed07484405d56b74d63fccbce301ba06efe21f50eb254ba3f"
+    }
   }
 }

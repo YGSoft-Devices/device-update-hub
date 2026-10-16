@@ -1,9 +1,9 @@
-<!-- File: /README.md | Document version: 0.2.0 | Status: LOCAL MVP | Updated: 2026-10-16 -->
+<!-- File: /README.md | Document version: 0.3.1 | Status: LOCAL MVP | Updated: 2026-10-16 -->
 # Device Update Hub
 
 > **Working name:** Device Update Hub (DUH)  
 > **Status:** Local MVP implemented and tested; production not authorized  
-> **Document version:** `0.2.0`  
+> **Document version:** `0.3.1`  
 > **Specification version:** `0.1.0`  
 > **Repository location:** `/README.md`  
 > **Last updated:** 2026-10-16  
@@ -11,13 +11,13 @@
 
 ## Local MVP / MVP local
 
-**FR** — Le serveur, l'administration web et l'outil de publication sont implémentés. Les vérifications locales couvrent 11 tests unitaires/intégration, deux parcours navigateur desktop/mobile, la compilation TypeScript et l'audit des dépendances. Aucun appareil ni service de production n'est contacté. Docker Compose est configuré mais son exécution reste à vérifier : le moteur Docker local était arrêté.
+**FR** — Le serveur, l'administration web, les thèmes System/Light/Dark et les outils développeurs sont implémentés. Le [guide développeur](docs/DEVELOPERS.md) couvre API HTTP, CLI, interface web, vérification et téléchargement explicite. L'historique est dans [CHANGELOG.md](CHANGELOG.md) et chaque fichier source possède une version contrôlée. Le domaine prévu est **https://updatehub.ygsoft.fr**, pas encore créé ni déployé. Aucun appareil ni service de production n'est contacté. Docker Compose est configuré mais son exécution reste à vérifier : le moteur Docker local était arrêté.
 
 **EN** — The approved [MVP contract](docs/DECISIONS.md) supersedes the original design proposals below. Runtime schemas are in [src/contract.ts](src/contract.ts). Implemented: private product-scoped bearer access, products, editable drafts, multiple ordered artifacts, SHA-256 integrity, atomic publishing, withdrawal, audit history, exact compatible SemVer discovery, immutable manifests, resumable downloads, SQLite persistence, a responsive React administration UI and a retry-safe script publisher. No check automatically downloads or installs anything.
 
 ### Run locally
 
-Use Node.js 24 LTS or newer (tested here on Node 26.9.0) and npm:
+Use Node.js 24-26 (tested here on Node 26.9.0) and npm:
 
 ```sh
 npm ci
@@ -26,7 +26,7 @@ npm run build
 npm start
 ```
 
-Open **http://127.0.0.1:3210**. The init command creates random credentials in `.local/credentials.json` without displaying them or overwriting existing credentials. Sign in with the `local-admin` token from that file, then create the `meeting-agent` product in Products. The generated publisher and reader credentials are scoped to that product. Never share the file or paste credentials into chat. Sessions remain in memory, not browser storage; reloading requires signing in again. English UI strings are centralized in `web/copy.ts`; French localization is not yet provided.
+Open **http://127.0.0.1:3210**. The init command creates random credentials in `.local/credentials.json` without displaying them or overwriting existing credentials. Sign in with the `local-admin` token from that file, then create the `meeting-agent` product in Products. The generated publisher and reader credentials are scoped to that product. Never share the file or paste credentials into chat. Authentication stays in memory; reloading requires signing in again. Only the System/Light/Dark preference is persisted in browser storage. English UI strings are centralized in `web/copy.ts`; French localization is not yet provided.
 
 `npm run dev` starts from TypeScript source, but serves the last built UI. After frontend edits run `npm run build` again. The default catalog and artifact directory is `.local/data`. Override it with `DUH_DATA_DIR`; configure `DUH_PORT` and `DUH_CREDENTIALS_FILE` as needed. Keep native binding on loopback.
 
@@ -45,7 +45,22 @@ On Windows browser tests use installed Microsoft Edge, avoiding a browser downlo
 
 After initializing credentials, `docker compose up --build -d` builds the application and mounts a durable named data volume. The published port is loopback-only. `docker compose down` retains the data; **do not use `down -v` unless intentional data loss is acceptable**. Native and Docker deployments use separate catalogs by default; do not run both on the same port or writable directory.
 
-For scripted publication, see [docs/OPERATIONS.md](docs/OPERATIONS.md). File versions and exact validation limits are recorded in [docs/DELIVERY.md](docs/DELIVERY.md). Production signing, TLS, identity management, installers and Meeting integration are not implemented or approved. Treat this as a local development MVP, not a production update authority.
+For HTTP, Node CLI, PowerShell and web publication, see [docs/DEVELOPERS.md](docs/DEVELOPERS.md), [examples/release-plan.json](examples/release-plan.json) and [examples/publish-http.ps1](examples/publish-http.ps1). The Node commands are `npm run publish:release`, `npm run check:update` and `npm run download:release`, each followed by `--` and its documented arguments. Discovery never downloads; downloading never installs. PowerShell 7 is optional, with its HTTP integration test skipped when unavailable.
+
+Operational configuration/backups are in [docs/OPERATIONS.md](docs/OPERATIONS.md). Production signing, TLS, identity management, installers and Meeting integration are not implemented or approved. The planned origin is supported by developer clients but is not a running service; do not expose this MVP publicly.
+
+### Source Versions and History
+
+[CHANGELOG.md](CHANGELOG.md) is mandatory; maintain Unreleased for meaningful changes. Every source/configuration/document file, including workspace configuration, has a metadata-header version or an explicit entry in [versions.json](versions.json). File versions are distinct from application `0.1.0`, API `v1` and manifest/schema `1`.
+
+After revising a file, increment its file version, then run:
+
+```sh
+npm run versions:record
+npm run versions:check
+```
+
+The recorder refuses changed contents at an unchanged version. Tests and builds reject stale file/hash inventory. Git keeps source text at LF endings on Windows and Linux so byte-accurate snapshots remain portable. Record new comment-free files explicitly before recording; do not put comments in strict JSON. Generated builds, dependencies, credentials and persistent data are excluded. Current versions/hashes are authoritative in the inventory; [docs/DELIVERY.md](docs/DELIVERY.md) preserves the initial delivery snapshot separately. Never record secrets.
 
 ## 1. Overview / Présentation
 

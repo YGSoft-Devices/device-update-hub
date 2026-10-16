@@ -1,15 +1,16 @@
-// File: /tests/api.test.ts | Version: 0.1.4
+// File: /tests/api.test.ts | Version: 0.2.3
 import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { get } from 'node:http';
 import { buildApp, type Credentials } from '../src/app.js';
-import type { Release } from '../src/contract.js';
+import { checkSchema, draftSchema, type Release } from '../src/contract.js';
+import { HubClient, plannedOrigin, readClientToken, validateBaseUrl } from '../src/client.js';
 
 const target = { device_type: 'rpi-camera', os: 'linux', architecture: 'arm64', hardware_revision: 'rev-b', updater_protocol: 1 };
 const draft = { product: 'meeting-agent', version: '1.2.0', channel: 'stable', targets: [target], release_notes: 'Test release' };
@@ -228,4 +229,112 @@ test('interrupted HTTP download resumes with unchanged bytes and matching SHA-25
     assert.deepEqual(combined, bytes);
     assert.equal(createHash('sha256').update(combined).digest('hex'), artifact.sha256);
   } finally { await hub.cleanup(); }
+});
+
+test('client origin policy prepares the planned HTTPS domain without allowing credential redirects', async () => {
+  assert.equal(validateBaseUrl(plannedOrigin).origin, 'https://updatehub.ygsoft.fr');
+  assert.equal(validateBaseUrl('http://127.0.0.1:3210').origin, 'http://127.0.0.1:3210');
+  for (const url of ['http://updatehub.ygsoft.fr', 'https://other.invalid', 'https://updatehub.ygsoft.fr:444',
+    'https://updatehub.ygsoft.fr/api/v1', 'https://user:password@updatehub.ygsoft.fr', 'https://updatehub.ygsoft.fr/?key=value']) {
+    assert.throws(() => validateBaseUrl(url));
+  }
+  const hub = await fixture();
+  try {
+    const client = new HubClient({ token: hub.credentials[2]!.token });
+    await assert.rejects(client.request('https://other.invalid/api/v1/session'), /same-origin/);
+    await assert.rejects(client.request('/api/v1/../health'), /same-origin/);
+    assert.throws(() => readClientToken('reader', 'meeting-agent', { DUH_TOKEN: hub.credentials[2]!.token, DUH_TOKEN_FILE: 'unused' }), /only one/);
+  } finally { await hub.cleanup(); }
+});
+
+test('reference client checks separately, downloads verified bytes safely and rejects tampering', async () => {
+  const hub = await fixture();
+  try {
+    const release = await hub.complete((await hub.create()).id);
+    const baseUrl = await hub.app.listen({ host: '127.0.0.1', port: 0 });
+    const client = new HubClient({ baseUrl, token: hub.credentials[2]!.token });
+    let downloads = 0;
+    hub.app.server.on('request', (incoming) => { if (incoming.url?.endsWith('/download')) downloads += 1; });
+    const result = await client.check({ product: draft.product, channel: 'stable', current_version: '1.0.0',
+      target: { ...target, updater_protocol: 1 } });
+    assert.equal(result.update_available, true);
+    assert.equal(downloads, 0);
+    assert.equal(existsSync(join(hub.directory, 'downloads')), false);
+    assert.ok(result.update_available);
+    const manifest = await client.manifest(result.release.manifest_url);
+    await assert.rejects(client.manifest(result.release.manifest_url, {
+      product: draft.product, channel: 'stable', current_version: '1.0.0', target: { ...target, updater_protocol: 1, architecture: 'other' },
+    }), /not an eligible update/);
+    assert.equal(downloads, 0);
+    assert.equal(manifest.release_id, release.id);
+    const directory = join(hub.directory, 'downloads');
+    const paths = await client.download(manifest, directory);
+    assert.equal(readFileSync(paths[0]!, 'utf8'), 'trusted payload');
+    assert.equal(downloads, 1);
+    await client.download(manifest, directory);
+    assert.equal(downloads, 1, 'identical existing files are verified, not overwritten');
+    const altered = { ...manifest, artifacts: manifest.artifacts.map((artifact) => ({ ...artifact, sha256: '0'.repeat(64) })) };
+    const invalidDirectory = join(hub.directory, 'bad-downloads');
+    await assert.rejects(client.download(altered, invalidDirectory), /checksum or size/);
+    assert.deepEqual(readdirSync(invalidDirectory), []);
+    writeFileSync(paths[0]!, 'local change');
+    await assert.rejects(client.download(manifest, directory), /Existing file differs/);
+    assert.equal(readFileSync(paths[0]!, 'utf8'), 'local change');
+    const unsafe = { ...manifest, artifacts: manifest.artifacts.map((artifact) => ({ ...artifact, download_url: 'https://other.invalid/bytes' })) };
+    await assert.rejects(client.download(unsafe, join(hub.directory, 'unsafe')));
+    assert.equal(existsSync(join(hub.directory, 'unsafe')), false);
+  } finally { await hub.cleanup(); }
+});
+
+test('developer check and download CLIs use a raw reader token file and never install', async () => {
+  const hub = await fixture();
+  try {
+    const release = await hub.complete((await hub.create()).id);
+    const baseUrl = await hub.app.listen({ host: '127.0.0.1', port: 0 });
+    const tokenPath = join(hub.directory, 'reader.token');
+    writeFileSync(tokenPath, hub.credentials[2]!.token, { mode: 0o600 });
+    const checkPath = join(hub.directory, 'check.json');
+    writeFileSync(checkPath, JSON.stringify({ product: draft.product, channel: 'stable', target, current_version: '1.0.0' }));
+    const environment = { ...process.env, DUH_BASE_URL: baseUrl, DUH_TOKEN: '', DUH_TOKEN_FILE: tokenPath };
+    const check = await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/check.ts', checkPath], { env: environment });
+    assert.equal(JSON.parse(check.stdout).release.id, release.id);
+    const output = join(hub.directory, 'client-files');
+    assert.equal(existsSync(output), false);
+    const download = await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/download.ts', checkPath, release.id, output], { env: environment });
+    assert.equal(JSON.parse(download.stdout).installed, false);
+    assert.equal(readFileSync(join(output, 'firmware.bin'), 'utf8'), 'trusted payload');
+    assert.equal(download.stdout.includes(hub.credentials[2]!.token), false);
+    await assert.rejects(promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/publish.ts', checkPath], { env: environment }));
+  } finally { await hub.cleanup(); }
+});
+
+test('PowerShell HTTP publisher creates, retries and interoperates with the Node CLI', {
+  skip: spawnSync('pwsh', ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.Major']).status !== 0,
+}, async () => {
+  const hub = await fixture();
+  try {
+    const address = await hub.app.listen({ host: '127.0.0.1', port: 0 });
+    const tokenPath = join(hub.directory, 'publisher.token');
+    writeFileSync(tokenPath, hub.credentials[1]!.token, { mode: 0o600 });
+    const planPath = join(hub.directory, 'plan.json');
+    writeFileSync(join(hub.directory, 'application.bin'), 'PowerShell fixture');
+    writeFileSync(join(hub.directory, 'settings.json'), '{"fixture":true}');
+    writeFileSync(planPath, JSON.stringify({ ...draft, files: ['application.bin', 'settings.json'] }));
+    const publish = () => promisify(execFile)('pwsh', ['-NoProfile', '-File', 'examples/publish-http.ps1',
+      '-PlanFile', planPath, '-TokenFile', tokenPath, '-BaseUrl', address]);
+    assert.match((await publish()).stdout, /Published meeting-agent 1.2.0/);
+    assert.match((await publish()).stdout, /Published meeting-agent 1.2.0/);
+    const node = await promisify(execFile)(process.execPath, ['--import', 'tsx', 'scripts/publish.ts', planPath], {
+      env: { ...process.env, DUH_BASE_URL: address, DUH_TOKEN: '', DUH_TOKEN_FILE: tokenPath },
+    });
+    assert.match(node.stdout, /Published meeting-agent 1.2.0/);
+    assert.equal(hub.store.list({ id: 'test', role: 'admin', products: [] }).length, 1);
+  } finally { await hub.cleanup(); }
+});
+
+test('developer JSON examples match the accepted request schemas', () => {
+  const { files, ...draftInput } = JSON.parse(readFileSync('examples/release-plan.json', 'utf8'));
+  draftSchema.parse(draftInput);
+  assert.equal(files.length, 2);
+  checkSchema.parse(JSON.parse(readFileSync('examples/check-request.json', 'utf8')));
 });

@@ -1,4 +1,4 @@
-// File: /src/contract.ts | Version: 0.1.0
+// File: /src/contract.ts | Version: 0.2.0
 import semver from 'semver';
 import { z } from 'zod';
 
@@ -45,6 +45,30 @@ export const manifestInputSchema = z.strictObject({
   artifact_order: z.array(z.uuid()).min(1).max(32)
     .refine((ids) => new Set(ids).size === ids.length, 'Duplicate artifact ID'),
 });
+export const publishedManifestSchema = z.strictObject({
+  schema_version: z.literal('1'),
+  release_id: z.uuid(),
+  product: slug,
+  version,
+  channel: slug,
+  targets: z.array(targetSchema).min(1).max(32),
+  published_at: z.iso.datetime(),
+  artifacts: z.array(artifactSchema.extend({
+    required: z.literal(true),
+    download_url: z.string(),
+  }).refine((artifact) => artifact.download_url === `/api/v1/artifacts/${artifact.id}/download`, 'Invalid artifact URL'))
+    .min(1).max(32)
+    .refine((artifacts) => new Set(artifacts.map((artifact) => artifact.id)).size === artifacts.length, 'Duplicate artifact ID')
+    .refine((artifacts) => new Set(artifacts.map((artifact) => artifact.filename.toLowerCase())).size === artifacts.length, 'Ambiguous artifact filenames'),
+});
+export const checkResultSchema = z.discriminatedUnion('update_available', [
+  z.strictObject({ update_available: z.literal(false), reason: z.literal('no_eligible_update') }),
+  z.strictObject({ update_available: z.literal(true), release: z.strictObject({
+    id: z.uuid(), product: slug, version, channel: slug, release_notes: z.string().max(16000), manifest_url: z.string(),
+  }).refine((release) => release.manifest_url === `/api/v1/releases/${release.id}/manifest`, 'Invalid manifest URL') }),
+]);
+export type PublishedManifest = z.infer<typeof publishedManifestSchema>;
+export type CheckResult = z.infer<typeof checkResultSchema>;
 export type Target = z.infer<typeof targetSchema>;
 export type Draft = z.infer<typeof draftSchema>;
 export type Artifact = z.infer<typeof artifactSchema>;
